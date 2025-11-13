@@ -99,8 +99,14 @@
     };
   </script>
 
-  <!-- Link external JS -->
-  <script src="game.js"></script>
+  <!-- Delay loading game.js until Firebase is ready -->
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const script = document.createElement("script");
+      script.src = "game.js?v=" + Date.now();  // bust cache so new JS loads
+      document.body.appendChild(script);
+    });
+  </script>
 
 </body>
 </html>
