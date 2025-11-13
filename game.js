@@ -60,52 +60,100 @@ let holdInterval = null;
 const MOVE_INTERVAL = 150;
 
 /* ============================================================
-   LEADERBOARD HELPERS (TOP 5, 3-LETTER NAMES)
+   FIREBASE LEADERBOARD (GLOBAL)
 ============================================================ */
-function getLeaderboard() {
+let fbDb = null;
+let fbAddDoc = null;
+let fbCollection = null;
+let fbQuery = null;
+let fbOrderBy = null;
+let fbLimitFn = null;
+let fbGetDocs = null;
+
+// In-memory snapshot of global top scores
+let globalLeaderboard = [];
+
+// Remember player name between runs
+let playerName = localStorage.getItem("concretePlayerName") || "";
+
+// Grab Firebase objects exposed from index.html
+function initFirebaseRefs() {
+  if (!window._firebase) {
+    console.warn("Firebase not available on window._firebase");
+    return;
+  }
+  const {
+    db,
+    addDoc,
+    collection,
+    query,
+    orderBy,
+    limit,
+    getDocs
+  } = window._firebase;
+
+  fbDb = db;
+  fbAddDoc = addDoc;
+  fbCollection = collection;
+  fbQuery = query;
+  fbOrderBy = orderBy;
+  fbLimitFn = limit;
+  fbGetDocs = getDocs;
+}
+
+// Submit a score to Firestore (collection: "leaderboard")
+async function submitScoreToFirebase(name, score) {
+  if (!fbDb || !fbAddDoc || !fbCollection) return;
   try {
-    const data = localStorage.getItem("concreteLeaderboard");
-    return data ? JSON.parse(data) : [];
-  } catch (e) {
-    return [];
+    await fbAddDoc(fbCollection(fbDb, "leaderboard"), {
+      name,
+      score,
+      timestamp: Date.now()
+    });
+  } catch (err) {
+    console.error("Error submitting score to Firebase:", err);
   }
 }
 
-function saveLeaderboard(board) {
-  localStorage.setItem("concreteLeaderboard", JSON.stringify(board));
+// Load top 5 scores from Firestore into globalLeaderboard
+async function refreshGlobalLeaderboard() {
+  if (!fbDb || !fbQuery || !fbCollection || !fbOrderBy || !fbLimitFn || !fbGetDocs) return;
+  try {
+    const q = fbQuery(
+      fbCollection(fbDb, "leaderboard"),
+      fbOrderBy("score", "desc"),
+      fbLimitFn(5)
+    );
+    const snap = await fbGetDocs(q);
+    globalLeaderboard = snap.docs.map(doc => doc.data());
+    updateLeaderboardSmall();
+  } catch (err) {
+    console.error("Error loading leaderboard from Firebase:", err);
+  }
 }
 
-function addToLeaderboard(name, score) {
-  let board = getLeaderboard();
-  board.push({ name, score });
-  board.sort((a, b) => b.score - a.score); // highest first
-  board = board.slice(0, 5); // keep top 5
-  saveLeaderboard(board);
-  updateLeaderboardSmall();
-}
-
+// Check if a score qualifies for top 5 based on current globalLeaderboard snapshot
 function qualifiesForLeaderboard(score) {
-  const board = getLeaderboard();
-  if (board.length < 5) return true;
-  const lowest = board[board.length - 1].score;
+  if (!globalLeaderboard || globalLeaderboard.length === 0) return true;
+  if (globalLeaderboard.length < 5) return true;
+  const lowest = globalLeaderboard[globalLeaderboard.length - 1].score;
   return score > lowest;
 }
 
+// Build HTML for the big leaderboard inside the overlay
 function buildLeaderboardHtml() {
-  const board = getLeaderboard();
-  if (!board.length) {
-    return "<br><br><strong>Top Scores</strong><br>No scores yet.";
+  if (!globalLeaderboard || globalLeaderboard.length === 0) {
+    return "<br><br><strong>Top Scores (Global)</strong><br>No scores yet.";
   }
-  let html = "<br><br><strong>Top Scores</strong><br>";
-  board.forEach((entry, idx) => {
+  let html = "<br><br><strong>Top Scores (Global)</strong><br>";
+  globalLeaderboard.forEach((entry, idx) => {
     html += `${idx + 1}. ${entry.name} - ${entry.score}<br>`;
   });
   return html;
 }
 
-// Small leaderboard under the score stat
+// Small leaderboard under the score stat (Top 5)
 function updateLeaderboardSmall() {
-  const board = getLeaderboard();
   const scoreSpan = document.getElementById("scoreDisplay");
   if (!scoreSpan) return;
 
@@ -119,11 +167,11 @@ function updateLeaderboardSmall() {
     if (parent) parent.appendChild(container);
   }
 
-  if (board.length === 0) {
-    container.textContent = "Top 5: ---";
+  if (!globalLeaderboard || globalLeaderboard.length === 0) {
+    container.textContent = "Top 5 (Global): ---";
   } else {
-    const parts = board.map(entry => `${entry.name} ${entry.score}`);
-    container.textContent = "Top 5: " + parts.join(" · ");
+    const parts = globalLeaderboard.map(entry => `${entry.name} ${entry.score}`);
+    container.textContent = "Top 5 (Global): " + parts.join(" · ");
   }
 }
 
@@ -335,7 +383,7 @@ function updateHUD() {
 
   document.getElementById("bestDisplay").textContent = bestScore;
 
-  // Keep small leaderboard visible
+  // Keep small leaderboard visible (global)
   updateLeaderboardSmall();
 }
 
@@ -394,26 +442,39 @@ function finishLevel() {
 
   const messageDetails = document.getElementById("message-details");
 
-  if (passed) {
-    // No leaderboard popup on pass
-    messageDetails.innerHTML = baseDetails;
-  } else {
-    // On fail: if top 5, ask name (arcade style 3 letters)
+  // Default details (before leaderboard)
+  let detailsHtml = baseDetails;
+
+  if (!passed) {
+    // On fail: if top 5, ask name (arcade style 3 letters) and submit to Firebase
     if (qualifiesForLeaderboard(totalRunScore)) {
+      let defaultName = playerName || "AAA";
       let name = prompt(
         `New high score: ${totalRunScore}!\nEnter your initials (3 letters):`,
-        "AAA"
+        defaultName
       );
-      if (!name) name = "AAA";
+      if (!name) name = defaultName || "AAA";
       name = name.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) || "AAA";
-      addToLeaderboard(name, totalRunScore);
+
+      playerName = name;
+      localStorage.setItem("concretePlayerName", playerName);
+
+      // Optimistically add to local snapshot so UI updates instantly
+      globalLeaderboard.push({ name: playerName, score: totalRunScore });
+      globalLeaderboard.sort((a, b) => b.score - a.score);
+      globalLeaderboard = globalLeaderboard.slice(0, 5);
+      updateLeaderboardSmall();
+
+      // Fire-and-forget submit to Firebase
+      submitScoreToFirebase(playerName, totalRunScore);
     }
 
-    // Build big leaderboard for overlay
+    // Build big leaderboard for overlay (from current snapshot)
     const leaderboardHtml = buildLeaderboardHtml();
-    messageDetails.innerHTML = baseDetails + leaderboardHtml;
+    detailsHtml = baseDetails + leaderboardHtml;
   }
 
+  messageDetails.innerHTML = detailsHtml;
   showMessage();
 
   document.getElementById("nextLevelBtn").textContent =
@@ -604,6 +665,10 @@ function init() {
   const saved = localStorage.getItem("concreteGameBestScore");
   if (saved) bestScore = parseInt(saved);
   document.getElementById("bestDisplay").textContent = bestScore;
+
+  // Set up Firebase refs and load global leaderboard
+  initFirebaseRefs();
+  refreshGlobalLeaderboard();
 
   updateLeaderboardSmall();
   setupLevel(currentLevelIndex);
