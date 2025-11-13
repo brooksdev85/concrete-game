@@ -42,6 +42,11 @@ let bestScore = 0;
 let touchStartX = null;
 let touchStartY = null;
 
+/* --- NEW: Swipe & Hold movement variables --- */
+let currentDirection = null;
+let holdInterval = null;
+const MOVE_INTERVAL = 150; // ms between continuous moves
+
 /* ============================================================
    TILE MODEL
 ============================================================ */
@@ -332,7 +337,37 @@ function moveTrowel(dx, dy) {
   }
 }
 
-// Keyboard controls
+/* ============================================================
+   NEW — CONTINUOUS MOVEMENT LOGIC
+============================================================ */
+function startContinuousMove(direction) {
+  currentDirection = direction;
+
+  if (holdInterval) return; // Already running
+
+  holdInterval = setInterval(() => {
+    if (!currentDirection) return;
+
+    if (currentDirection === "up") moveTrowel(0, -1);
+    if (currentDirection === "down") moveTrowel(0, 1);
+    if (currentDirection === "left") moveTrowel(-1, 0);
+    if (currentDirection === "right") moveTrowel(1, 0);
+
+  }, MOVE_INTERVAL);
+}
+
+function stopContinuousMove() {
+  currentDirection = null;
+
+  if (holdInterval) {
+    clearInterval(holdInterval);
+    holdInterval = null;
+  }
+}
+
+/* ============================================================
+   KEYBOARD CONTROLS
+============================================================ */
 window.addEventListener("keydown", e => {
   if (!isLevelRunning) return;
   const k = e.key.toLowerCase();
@@ -343,25 +378,34 @@ window.addEventListener("keydown", e => {
   else if (k === "arrowright" || k === "d") moveTrowel(1, 0);
 });
 
-// Mobile swipe controls
+/* ============================================================
+   MOBILE SWIPE & HOLD MOVEMENT
+============================================================ */
 canvas.addEventListener("touchstart", e => {
   const t = e.touches[0];
   touchStartX = t.clientX;
   touchStartY = t.clientY;
 }, { passive: true });
 
-canvas.addEventListener("touchend", e => {
-  const t = e.changedTouches[0];
+canvas.addEventListener("touchmove", e => {
+  const t = e.touches[0];
   const dx = t.clientX - touchStartX;
   const dy = t.clientY - touchStartY;
 
-  const ax = Math.abs(dx);
-  const ay = Math.abs(dy);
+  const minSwipe = 20;
+  if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) return;
 
-  if (Math.max(ax, ay) < 20) return;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > 0) startContinuousMove("right");
+    else startContinuousMove("left");
+  } else {
+    if (dy > 0) startContinuousMove("down");
+    else startContinuousMove("up");
+  }
+}, { passive: true });
 
-  if (ax > ay) moveTrowel(dx > 0 ? 1 : -1, 0);
-  else moveTrowel(0, dy > 0 ? 1 : -1);
+canvas.addEventListener("touchend", () => {
+  stopContinuousMove();
 });
 
 /* ============================================================
@@ -378,7 +422,7 @@ document.getElementById("helpButton").onclick = () => {
     "- Finished tiles NEVER dry.\n\n" +
     "Controls:\n" +
     "- Arrow keys / WASD\n" +
-    "- Swipe on mobile"
+    "- Swipe (hold to keep moving)"
   );
 };
 
