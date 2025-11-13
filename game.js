@@ -22,6 +22,15 @@ const PASSES_TO_FINISH = 5;
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+// === NEW: Load the trowel image ===
+const trowelImg = new Image();
+trowelImg.src = "trowel.png";  // File must be in the same GitHub folder
+let trowelLoaded = false;
+
+trowelImg.onload = () => {
+  trowelLoaded = true;
+};
+
 let currentLevelIndex = 0;
 let tiles = [];
 let cols = 8;
@@ -154,18 +163,17 @@ function drawGame(gameTime) {
     }
   }
 
-  // Draw trowel (yellow square)
-  const pad = tileSize * 0.15;
-  const tx = trowelX * tileSize + pad;
-  const ty = trowelY * tileSize + pad;
-  const size = tileSize - pad * 2;
+  // === NEW: Draw custom trowel image instead of yellow square ===
 
-  ctx.fillStyle = "#ffeb99";
-  ctx.fillRect(tx, ty, size, size);
+  if (trowelLoaded) {
+    const pad = tileSize * 0.1;
+    const size = tileSize - pad * 2;
 
-  ctx.strokeStyle = "#d1a100";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(tx, ty, size, size);
+    const tx = trowelX * tileSize + pad;
+    const ty = trowelY * tileSize + pad;
+
+    ctx.drawImage(trowelImg, tx, ty, size, size);
+  }
 }
 
 /* ============================================================
