@@ -2,16 +2,16 @@
    CONFIG
 ============================================================ */
 const levels = [
-  { cols: 8, rows: 8, levelTime: 60 },
-  { cols: 10, rows: 10, levelTime: 70 },
-  { cols: 10, rows: 12, levelTime: 80 },
-  { cols: 12, rows: 12, levelTime: 95 },
-  { cols: 15, rows: 15, levelTime: 110 }
+  { cols: 6, rows: 6, levelTime: 60 },
+  { cols: 8, rows: 8, levelTime: 70 },
+  { cols: 8, rows: 10, levelTime: 80 },
+  { cols: 10, rows: 10, levelTime: 95 },
+  { cols: 12, rows: 10, levelTime: 110 }
 ];
 
 // SLOWER DRYING TIMES
-const EDGE_DRY_TIME  = 20;
-const INNER_DRY_TIME = 30;
+const EDGE_DRY_TIME  = 15;
+const INNER_DRY_TIME = 25;
 
 // How many trowel passes needed to fully finish a tile (stage 5)
 const PASSES_TO_FINISH = 5;
@@ -33,8 +33,8 @@ trowelImg.onload = () => {
 
 let currentLevelIndex = 0;
 let tiles = [];
-let cols = 8;
-let rows = 8;
+let cols = 6;
+let rows = 6;
 let tileSize = 30;
 
 let trowelX = 0;
@@ -100,8 +100,8 @@ function setupLevel(levelIndex) {
   }
 
   // Start in the center
-  trowelX = Math.floor(cols / 2);
-  trowelY = Math.floor(rows / 2);
+  trowelX = cols - 1;
+  trowelY = rows - 1;
 
   tiles[trowelY][trowelX].passes = 1;
 
