@@ -24,7 +24,7 @@ const ctx = canvas.getContext("2d");
 
 // === NEW: Load the trowel image ===
 const trowelImg = new Image();
-trowelImg.src = "trowel.png";  // File must be in the same GitHub folder
+trowelImg.src = "trowel.png";
 let trowelLoaded = false;
 
 trowelImg.onload = () => {
@@ -48,13 +48,14 @@ let isLevelRunning = false;
 let lastFrameTime = null;
 let bestScore = 0;
 
+let totalRunScore = 0;     // <-- NEW: score for current run
 let touchStartX = null;
 let touchStartY = null;
 
-/* --- NEW: Swipe & Hold movement variables --- */
+/* Swipe + hold */
 let currentDirection = null;
 let holdInterval = null;
-const MOVE_INTERVAL = 150; // ms between continuous moves
+const MOVE_INTERVAL = 150;
 
 /* ============================================================
    TILE MODEL
@@ -88,7 +89,7 @@ function setupLevel(levelIndex) {
 
   resizeCanvas();
 
-  // Create grid
+  // Build tiles
   tiles = [];
   for (let y = 0; y < rows; y++) {
     const row = [];
@@ -98,13 +99,11 @@ function setupLevel(levelIndex) {
     tiles.push(row);
   }
 
-  // Trowel starts near center
+  // Start center
   trowelX = Math.floor(cols / 2);
   trowelY = Math.floor(rows / 2);
 
-  // First tile gets one pass
   tiles[trowelY][trowelX].passes = 1;
-  tiles[trowelY][trowelX].lastWorkedTime = 0;
 
   hideMessage();
   updateHUD();
@@ -139,7 +138,7 @@ window.addEventListener("resize", () => {
 function drawGame(gameTime) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw tiles
+  // Draw each tile
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const t = tiles[y][x];
@@ -157,22 +156,23 @@ function drawGame(gameTime) {
 
       ctx.fillStyle = color;
       ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-
       ctx.strokeStyle = "rgba(0,0,0,0.25)";
       ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
     }
   }
 
-  // === NEW: Draw custom trowel image instead of yellow square ===
-
+  // Draw trowel
   if (trowelLoaded) {
     const pad = tileSize * 0.1;
     const size = tileSize - pad * 2;
 
-    const tx = trowelX * tileSize + pad;
-    const ty = trowelY * tileSize + pad;
-
-    ctx.drawImage(trowelImg, tx, ty, size, size);
+    ctx.drawImage(
+      trowelImg,
+      trowelX * tileSize + pad,
+      trowelY * tileSize + pad,
+      size,
+      size
+    );
   }
 }
 
@@ -182,10 +182,7 @@ function drawGame(gameTime) {
 function gameLoop(timestamp) {
   if (!isLevelRunning) return;
 
-  if (!startTimestamp) {
-    startTimestamp = timestamp;
-    lastFrameTime = timestamp;
-  }
+  if (!startTimestamp) startTimestamp = timestamp;
 
   const elapsed = (timestamp - startTimestamp) / 1000;
   timeRemaining = Math.max(0, levelTime - elapsed);
@@ -209,12 +206,10 @@ function updateTilesDrying(gameTime) {
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const t = tiles[y][x];
-
       if (t.finished) {
         t.locked = true;
         continue;
       }
-
       if (t.locked) continue;
 
       const elapsed = gameTime - t.lastWorkedTime;
@@ -252,15 +247,18 @@ function updateHUD() {
     }
   }
 
+  // Update live run score (continues until failure)
+  totalRunScore = score;
+
   document.getElementById("perfectDisplay").textContent = perfect;
-  document.getElementById("scoreDisplay").textContent = score;
+  document.getElementById("scoreDisplay").textContent = totalRunScore;
 
   const savedBest = localStorage.getItem("concreteGameBestScore");
   if (savedBest !== null) bestScore = parseInt(savedBest);
 
-  if (score > bestScore) {
-    bestScore = score;
-    localStorage.setItem("concreteGameBestScore", score);
+  if (totalRunScore > bestScore) {
+    bestScore = totalRunScore;
+    localStorage.setItem("concreteGameBestScore", bestScore);
   }
 
   document.getElementById("bestDisplay").textContent = bestScore;
@@ -286,26 +284,30 @@ function finishLevel() {
     }
   }
 
+  // NEW — Must hit 80% perfect to pass
   const pct = Math.round((perfect / total) * 100);
+  const passed = pct >= 80;
 
-  const title =
-    pct === 100 ? "Perfect slab!" :
-    pct >= 70 ? "Nice finish!" :
-    pct >= 40 ? "Decent work!" :
-    "It set up on you 😅";
+  const title = passed
+    ? "Level Passed!"
+    : "Game Over";
 
   document.getElementById("message-title").textContent = title;
   document.getElementById("message-body").textContent =
-    `Level ${currentLevelIndex + 1} complete.`;
+    passed
+      ? `Nice! You finished ${pct}%`
+      : `You only finished ${pct}%. You need 80% to pass.`;
+
   document.getElementById("message-details").textContent =
     `Perfect: ${perfect}/${total} (${pct}%) · Partial: ${partial} · Passes: ${totalPasses}`;
 
   showMessage();
 
   document.getElementById("nextLevelBtn").textContent =
-    currentLevelIndex < levels.length - 1
-      ? "Next level ▶"
-      : "Play again 🔁";
+    passed ? "Next level ▶" : "Try again 🔁";
+
+  // Store result for button handler
+  document.getElementById("nextLevelBtn").dataset.passed = passed;
 }
 
 /* ============================================================
@@ -320,7 +322,7 @@ function hideMessage() {
 }
 
 /* ============================================================
-   MOVEMENT + INPUT
+   MOVEMENT
 ============================================================ */
 function moveTrowel(dx, dy) {
   if (!isLevelRunning) return;
@@ -345,28 +347,21 @@ function moveTrowel(dx, dy) {
   }
 }
 
-/* ============================================================
-   NEW — CONTINUOUS MOVEMENT LOGIC
-============================================================ */
 function startContinuousMove(direction) {
   currentDirection = direction;
 
-  if (holdInterval) return; // Already running
+  if (holdInterval) return;
 
   holdInterval = setInterval(() => {
-    if (!currentDirection) return;
-
     if (currentDirection === "up") moveTrowel(0, -1);
     if (currentDirection === "down") moveTrowel(0, 1);
     if (currentDirection === "left") moveTrowel(-1, 0);
     if (currentDirection === "right") moveTrowel(1, 0);
-
   }, MOVE_INTERVAL);
 }
 
 function stopContinuousMove() {
   currentDirection = null;
-
   if (holdInterval) {
     clearInterval(holdInterval);
     holdInterval = null;
@@ -374,7 +369,7 @@ function stopContinuousMove() {
 }
 
 /* ============================================================
-   KEYBOARD CONTROLS
+   CONTROLS
 ============================================================ */
 window.addEventListener("keydown", e => {
   if (!isLevelRunning) return;
@@ -386,9 +381,7 @@ window.addEventListener("keydown", e => {
   else if (k === "arrowright" || k === "d") moveTrowel(1, 0);
 });
 
-/* ============================================================
-   MOBILE SWIPE & HOLD MOVEMENT
-============================================================ */
+/* Mobile swipe */
 canvas.addEventListener("touchstart", e => {
   const t = e.touches[0];
   touchStartX = t.clientX;
@@ -412,35 +405,47 @@ canvas.addEventListener("touchmove", e => {
   }
 }, { passive: true });
 
-canvas.addEventListener("touchend", () => {
-  stopContinuousMove();
-});
+canvas.addEventListener("touchend", stopContinuousMove);
 
 /* ============================================================
    BUTTONS
 ============================================================ */
-document.getElementById("restartButton").onclick = () =>
-  setupLevel(currentLevelIndex);
+
+// Restart button = restart whole *RUN* from level 1
+document.getElementById("restartButton").onclick = () => {
+  totalRunScore = 0;
+  currentLevelIndex = 0;
+  setupLevel(0);
+};
 
 document.getElementById("helpButton").onclick = () => {
   alert(
     "Goal:\n" +
-    "- Use your trowel to finish concrete before it dries.\n" +
+    "- Finish 80% of the slab to pass the level.\n" +
+    "- Your score carries forward until you fail.\n" +
     "- Tiles need 5 passes to fully finish.\n" +
-    "- Finished tiles NEVER dry.\n\n" +
-    "Controls:\n" +
-    "- Arrow keys / WASD\n" +
-    "- Swipe (hold to keep moving)"
+    "- Swipe or use keys to move."
   );
 };
 
+// Next Level / Try Again button
 document.getElementById("nextLevelBtn").onclick = () => {
   hideMessage();
-  currentLevelIndex =
-    currentLevelIndex < levels.length - 1
-      ? currentLevelIndex + 1
-      : 0;
-  setupLevel(currentLevelIndex);
+
+  const passed = document.getElementById("nextLevelBtn").dataset.passed === "true";
+
+  if (passed) {
+    // Continue run
+    if (currentLevelIndex < levels.length - 1) currentLevelIndex++;
+    else currentLevelIndex = 0; // Loop after final level
+
+    setupLevel(currentLevelIndex);
+  } else {
+    // Failed — reset run
+    totalRunScore = 0;
+    currentLevelIndex = 0;
+    setupLevel(0);
+  }
 };
 
 /* ============================================================
@@ -449,7 +454,6 @@ document.getElementById("nextLevelBtn").onclick = () => {
 function init() {
   const saved = localStorage.getItem("concreteGameBestScore");
   if (saved) bestScore = parseInt(saved);
-
   document.getElementById("bestDisplay").textContent = bestScore;
   setupLevel(currentLevelIndex);
 }
