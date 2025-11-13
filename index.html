@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Concrete Power Trowel Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Link external CSS -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div id="game-wrapper">
+    <div id="header">
+      <h1>Concrete Power Trowel Game</h1>
+      <p>Finish the slab before it dries out. Edge squares dry faster — just like real concrete.</p>
+    </div>
+
+    <div id="top-bar">
+      <div id="stats">
+        <div class="stat">Level: <span id="levelDisplay">1</span>/5</div>
+        <div class="stat">Time: <span id="timeDisplay">0</span>s</div>
+        <div class="stat">Perfect tiles: <span id="perfectDisplay">0</span></div>
+        <div class="stat">Score: <span id="scoreDisplay">0</span> (Best: <span id="bestDisplay">0</span>)</div>
+      </div>
+      <div id="buttons">
+        <button id="restartButton">Restart level</button>
+        <button id="helpButton">Help</button>
+      </div>
+    </div>
+
+    <div id="game-container">
+      <div id="game-container-relative">
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="message-overlay">
+          <div id="message-box">
+            <h2 id="message-title"></h2>
+            <p id="message-body"></p>
+            <p id="message-details"></p>
+            <button id="nextLevelBtn">Next</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="legend">
+        <div class="legend-item"><div class="legend-color" style="background:#d5d5d5;"></div> raw concrete</div>
+        <div class="legend-item"><div class="legend-color" style="background:#a0a0a0;"></div> worked</div>
+        <div class="legend-item"><div class="legend-color" style="background:#f5f5f5;"></div> dried out</div>
+        <div class="legend-item"><div class="legend-color" style="background:#555555;"></div> finished</div>
+        <div class="legend-item"><div class="legend-color" style="background:#ffeb99;"></div> trowel</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Link external JS -->
+  <script src="game.js"></script>
+</body>
+</html>

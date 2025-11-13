@@ -1,0 +1,105 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui;
+  background: #2f3338;
+  color: #f4f4f4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+#game-wrapper {
+  width: 100%;
+  max-width: 900px;
+  padding: 10px;
+}
+
+#header {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+#header h1 {
+  margin: 0 0 5px;
+  font-size: 1.4rem;
+}
+
+#top-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.stat {
+  padding: 4px 8px;
+  background: #41464f;
+  border-radius: 6px;
+}
+
+button {
+  background: #f6c453;
+  color: #222;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#game-container {
+  background: #202328;
+  padding: 8px;
+  border-radius: 10px;
+  box-shadow: 0 0 12px rgba(0,0,0,0.4);
+}
+
+#gameCanvas {
+  width: 100%;
+  background: #808080;
+  border-radius: 6px;
+  max-height: 70vh;
+  display: block;
+  touch-action: none;
+}
+
+#legend {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid #444;
+}
+
+#message-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+#message-box {
+  background: rgba(15, 16, 20, 0.96);
+  padding: 16px;
+  border-radius: 10px;
+  text-align: center;
+}
