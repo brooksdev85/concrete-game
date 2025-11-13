@@ -13,7 +13,7 @@ const levels = [
 const EDGE_DRY_TIME  = 20;
 const INNER_DRY_TIME = 30;
 
-// How many trowel passes needed to fully finish a tile
+// How many trowel passes needed to fully finish a tile (stage 5)
 const PASSES_TO_FINISH = 5;
 
 /* ============================================================
@@ -22,7 +22,7 @@ const PASSES_TO_FINISH = 5;
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// === NEW: Load the trowel image ===
+// Load the trowel image
 const trowelImg = new Image();
 trowelImg.src = "trowel.png";
 let trowelLoaded = false;
@@ -48,7 +48,7 @@ let isLevelRunning = false;
 let lastFrameTime = null;
 let bestScore = 0;
 
-let totalRunScore = 0;     // <-- NEW: score for current run
+let totalRunScore = 0; // score for current run
 let touchStartX = null;
 let touchStartY = null;
 
@@ -99,7 +99,7 @@ function setupLevel(levelIndex) {
     tiles.push(row);
   }
 
-  // Start center
+  // Start in the center
   trowelX = Math.floor(cols / 2);
   trowelY = Math.floor(rows / 2);
 
@@ -236,13 +236,16 @@ function updateHUD() {
   document.getElementById("levelDisplay").textContent = currentLevelIndex + 1;
   document.getElementById("timeDisplay").textContent = Math.ceil(timeRemaining);
 
-  let perfect = 0;
+  let perfect = 0; // tiles at stage 5
   let score = 0;
 
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const t = tiles[y][x];
-      if (t.finished) perfect++;
+
+      // Perfect = tiles that reached stage 5 (passes >= PASSES_TO_FINISH)
+      if (t.passes >= PASSES_TO_FINISH) perfect++;
+
       score += t.passes;
     }
   }
@@ -270,7 +273,7 @@ function updateHUD() {
 function finishLevel() {
   isLevelRunning = false;
 
-  let perfect = 0;
+  let perfect = 0; // tiles at stage 5
   let partial = 0;
   let total = cols * rows;
   let totalPasses = 0;
@@ -279,12 +282,17 @@ function finishLevel() {
     for (let x = 0; x < cols; x++) {
       const t = tiles[y][x];
       totalPasses += t.passes;
-      if (t.finished) perfect++;
-      else if (t.passes > 0) partial++;
+
+      // PERFECT = tile reached stage 5 (5 passes)
+      if (t.passes >= PASSES_TO_FINISH) {
+        perfect++;
+      } else if (t.passes > 0) {
+        partial++;
+      }
     }
   }
 
-  // NEW — Must hit 80% perfect to pass
+  // Must hit 80% of tiles at stage 5 to pass
   const pct = Math.round((perfect / total) * 100);
   const passed = pct >= 80;
 
@@ -295,11 +303,11 @@ function finishLevel() {
   document.getElementById("message-title").textContent = title;
   document.getElementById("message-body").textContent =
     passed
-      ? `Nice! You finished ${pct}%`
-      : `You only finished ${pct}%. You need 80% to pass.`;
+      ? `Nice! You finished ${pct}% of the slab at stage 5.`
+      : `You only got ${pct}% of the slab to stage 5. You need 80% to pass.`;
 
   document.getElementById("message-details").textContent =
-    `Perfect: ${perfect}/${total} (${pct}%) · Partial: ${partial} · Passes: ${totalPasses}`;
+    `Stage 5 tiles: ${perfect}/${total} (${pct}%) · Partial: ${partial} · Passes: ${totalPasses}`;
 
   showMessage();
 
@@ -411,7 +419,7 @@ canvas.addEventListener("touchend", stopContinuousMove);
    BUTTONS
 ============================================================ */
 
-// Restart button = restart whole *RUN* from level 1
+// Restart button = restart whole run from level 1
 document.getElementById("restartButton").onclick = () => {
   totalRunScore = 0;
   currentLevelIndex = 0;
@@ -421,7 +429,7 @@ document.getElementById("restartButton").onclick = () => {
 document.getElementById("helpButton").onclick = () => {
   alert(
     "Goal:\n" +
-    "- Finish 80% of the slab to pass the level.\n" +
+    "- Get at least 80% of tiles to stage 5 (5 passes) to pass the level.\n" +
     "- Your score carries forward until you fail.\n" +
     "- Tiles need 5 passes to fully finish.\n" +
     "- Swipe or use keys to move."
