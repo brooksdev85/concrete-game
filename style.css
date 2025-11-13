@@ -103,3 +103,31 @@ button {
   border-radius: 10px;
   text-align: center;
 }
+
+/* ============================================================
+   MOBILE JOYSTICK
+============================================================ */
+#joystick {
+  width: 120px;
+  height: 120px;
+  background: rgba(255,255,255,0.1);
+  border: 2px solid rgba(255,255,255,0.25);
+  border-radius: 50%;
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  touch-action: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 99;
+}
+
+#stick {
+  width: 50px;
+  height: 50px;
+  background: rgba(255,255,255,0.4);
+  border-radius: 50%;
+  position: absolute;
+  transform: translate(0,0);
+}
