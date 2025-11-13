@@ -494,31 +494,67 @@ window.addEventListener("keydown", e => {
   else if (k === "arrowright" || k === "d") moveTrowel(1, 0);
 });
 
-/* Mobile swipe */
-canvas.addEventListener("touchstart", e => {
+/* ============================================================
+   MOBILE JOYSTICK
+============================================================ */
+const joy = document.getElementById("joystick");
+const stick = document.getElementById("stick");
+
+let joyCenterX, joyCenterY;
+let joyActive = false;
+
+function startJoystick(e) {
+  joyActive = true;
+  const rect = joy.getBoundingClientRect();
+  joyCenterX = rect.left + rect.width / 2;
+  joyCenterY = rect.top + rect.height / 2;
+}
+
+function moveJoystick(e) {
+  if (!joyActive) return;
+
   const t = e.touches[0];
-  touchStartX = t.clientX;
-  touchStartY = t.clientY;
-}, { passive: true });
+  const dx = t.clientX - joyCenterX;
+  const dy = t.clientY - joyCenterY;
 
-canvas.addEventListener("touchmove", e => {
-  const t = e.touches[0];
-  const dx = t.clientX - touchStartX;
-  const dy = t.clientY - touchStartY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const maxDist = 40;
 
-  const minSwipe = 20;
-  if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) return;
+  let ndx = dx;
+  let ndy = dy;
 
-  if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > 0) startContinuousMove("right");
-    else startContinuousMove("left");
-  } else {
-    if (dy > 0) startContinuousMove("down");
-    else startContinuousMove("up");
+  if (dist > maxDist) {
+    ndx = (dx / dist) * maxDist;
+    ndy = (dy / dist) * maxDist;
   }
-}, { passive: true });
 
-canvas.addEventListener("touchend", stopContinuousMove);
+  stick.style.transform = `translate(${ndx}px, ${ndy}px)`;
+
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+
+  // Trigger movement directions
+  if (absX > absY) {
+    if (dx > 10) startContinuousMove("right");
+    else if (dx < -10) startContinuousMove("left");
+    else stopContinuousMove();
+  } else {
+    if (dy > 10) startContinuousMove("down");
+    else if (dy < -10) startContinuousMove("up");
+    else stopContinuousMove();
+  }
+}
+
+function endJoystick() {
+  joyActive = false;
+  stick.style.transform = "translate(0px,0px)";
+  stopContinuousMove();
+}
+
+joy.addEventListener("touchstart", startJoystick, { passive: true });
+joy.addEventListener("touchmove",  moveJoystick,  { passive: true });
+joy.addEventListener("touchend",   endJoystick);
+
 
 /* ============================================================
    BUTTONS
