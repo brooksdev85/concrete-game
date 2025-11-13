@@ -59,8 +59,48 @@
     </div>
   </div>
 
+  <!-- Firebase + Firestore -->
+  <script type="module">
+    import { initializeApp }
+      from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      query,
+      orderBy,
+      limit,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
+
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBgA-U1pCbmpmq-pa_GXRHVyQ1xbr5ZBuQ",
+      authDomain: "power-trowel-game.firebaseapp.com",
+      projectId: "power-trowel-game",
+      storageBucket: "power-trowel-game.firebasestorage.app",
+      messagingSenderId: "1094565181158",
+      appId: "1:1094565181158:web:634ea8ef9599d92eaa2d27"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Expose Firestore safely to game.js
+    window._firebase = {
+      db,
+      addDoc,
+      collection,
+      query,
+      orderBy,
+      limit,
+      getDocs
+    };
+  </script>
+
   <!-- Link external JS -->
   <script src="game.js"></script>
+
 </body>
 </html>
-
