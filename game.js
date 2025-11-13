@@ -2,9 +2,9 @@
    CONFIG
 ============================================================ */
 const levels = [
-  { cols: 6, rows: 6, levelTime: 60 },
-  { cols: 8, rows: 8, levelTime: 70 },
-  { cols: 8, rows: 10, levelTime: 80 },
+  { cols: 6,  rows: 6,  levelTime: 60 },
+  { cols: 8,  rows: 8,  levelTime: 70 },
+  { cols: 8,  rows: 10, levelTime: 80 },
   { cols: 10, rows: 10, levelTime: 95 },
   { cols: 12, rows: 10, levelTime: 110 }
 ];
@@ -48,7 +48,9 @@ let isLevelRunning = false;
 let lastFrameTime = null;
 let bestScore = 0;
 
-let totalRunScore = 0; // score for current run
+// Total score for this run (completed levels so far)
+let totalRunScore = 0;
+
 let touchStartX = null;
 let touchStartY = null;
 
@@ -56,6 +58,74 @@ let touchStartY = null;
 let currentDirection = null;
 let holdInterval = null;
 const MOVE_INTERVAL = 150;
+
+/* ============================================================
+   LEADERBOARD HELPERS (TOP 5, 3-LETTER NAMES)
+============================================================ */
+function getLeaderboard() {
+  try {
+    const data = localStorage.getItem("concreteLeaderboard");
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveLeaderboard(board) {
+  localStorage.setItem("concreteLeaderboard", JSON.stringify(board));
+}
+
+function addToLeaderboard(name, score) {
+  let board = getLeaderboard();
+  board.push({ name, score });
+  board.sort((a, b) => b.score - a.score); // highest first
+  board = board.slice(0, 5); // keep top 5
+  saveLeaderboard(board);
+  updateLeaderboardSmall();
+}
+
+function qualifiesForLeaderboard(score) {
+  const board = getLeaderboard();
+  if (board.length < 5) return true;
+  const lowest = board[board.length - 1].score;
+  return score > lowest;
+}
+
+function buildLeaderboardHtml() {
+  const board = getLeaderboard();
+  if (!board.length) {
+    return "<br><br><strong>Top Scores</strong><br>No scores yet.";
+  }
+  let html = "<br><br><strong>Top Scores</strong><br>";
+  board.forEach((entry, idx) => {
+    html += `${idx + 1}. ${entry.name} - ${entry.score}<br>`;
+  });
+  return html;
+}
+
+// Small leaderboard under the score stat
+function updateLeaderboardSmall() {
+  const board = getLeaderboard();
+  const scoreSpan = document.getElementById("scoreDisplay");
+  if (!scoreSpan) return;
+
+  let container = document.getElementById("leaderboardSmall");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "leaderboardSmall";
+    container.style.fontSize = "0.7rem";
+    container.style.marginTop = "2px";
+    const parent = scoreSpan.parentElement;
+    if (parent) parent.appendChild(container);
+  }
+
+  if (board.length === 0) {
+    container.textContent = "Top 5: ---";
+  } else {
+    const parts = board.map(entry => `${entry.name} ${entry.score}`);
+    container.textContent = "Top 5: " + parts.join(" · ");
+  }
+}
 
 /* ============================================================
    TILE MODEL
@@ -99,7 +169,7 @@ function setupLevel(levelIndex) {
     tiles.push(row);
   }
 
-  // Start in the center
+  // Start in the bottom-right corner
   trowelX = cols - 1;
   trowelY = rows - 1;
 
@@ -236,8 +306,8 @@ function updateHUD() {
   document.getElementById("levelDisplay").textContent = currentLevelIndex + 1;
   document.getElementById("timeDisplay").textContent = Math.ceil(timeRemaining);
 
-  let perfect = 0; // tiles at stage 5
-  let score = 0;
+  let perfect = 0;     // tiles at stage 5
+  let levelScore = 0;  // passes this level only
 
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
@@ -246,25 +316,27 @@ function updateHUD() {
       // Perfect = tiles that reached stage 5 (passes >= PASSES_TO_FINISH)
       if (t.passes >= PASSES_TO_FINISH) perfect++;
 
-      score += t.passes;
+      levelScore += t.passes;
     }
   }
 
-  // Update live run score (continues until failure)
-  totalRunScore = score;
+  const displayScore = totalRunScore + levelScore;
 
   document.getElementById("perfectDisplay").textContent = perfect;
-  document.getElementById("scoreDisplay").textContent = totalRunScore;
+  document.getElementById("scoreDisplay").textContent = displayScore;
 
   const savedBest = localStorage.getItem("concreteGameBestScore");
   if (savedBest !== null) bestScore = parseInt(savedBest);
 
-  if (totalRunScore > bestScore) {
-    bestScore = totalRunScore;
+  if (displayScore > bestScore) {
+    bestScore = displayScore;
     localStorage.setItem("concreteGameBestScore", bestScore);
   }
 
   document.getElementById("bestDisplay").textContent = bestScore;
+
+  // Keep small leaderboard visible
+  updateLeaderboardSmall();
 }
 
 /* ============================================================
@@ -292,6 +364,16 @@ function finishLevel() {
     }
   }
 
+  // Add this level's passes to the run score
+  totalRunScore += totalPasses;
+
+  // Update best score based on full run score so far
+  if (totalRunScore > bestScore) {
+    bestScore = totalRunScore;
+    localStorage.setItem("concreteGameBestScore", bestScore);
+    document.getElementById("bestDisplay").textContent = bestScore;
+  }
+
   // Must hit 80% of tiles at stage 5 to pass
   const pct = Math.round((perfect / total) * 100);
   const passed = pct >= 80;
@@ -306,8 +388,31 @@ function finishLevel() {
       ? `Nice! You finished ${pct}% of the slab at stage 5.`
       : `You only got ${pct}% of the slab to stage 5. You need 80% to pass.`;
 
-  document.getElementById("message-details").textContent =
-    `Stage 5 tiles: ${perfect}/${total} (${pct}%) · Partial: ${partial} · Passes: ${totalPasses}`;
+  const baseDetails =
+    `Run score: ${totalRunScore}<br>` +
+    `Stage 5 tiles: ${perfect}/${total} (${pct}%) · Partial: ${partial} · Passes this level: ${totalPasses}`;
+
+  const messageDetails = document.getElementById("message-details");
+
+  if (passed) {
+    // No leaderboard popup on pass
+    messageDetails.innerHTML = baseDetails;
+  } else {
+    // On fail: if top 5, ask name (arcade style 3 letters)
+    if (qualifiesForLeaderboard(totalRunScore)) {
+      let name = prompt(
+        `New high score: ${totalRunScore}!\nEnter your initials (3 letters):`,
+        "AAA"
+      );
+      if (!name) name = "AAA";
+      name = name.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) || "AAA";
+      addToLeaderboard(name, totalRunScore);
+    }
+
+    // Build big leaderboard for overlay
+    const leaderboardHtml = buildLeaderboardHtml();
+    messageDetails.innerHTML = baseDetails + leaderboardHtml;
+  }
 
   showMessage();
 
@@ -361,9 +466,9 @@ function startContinuousMove(direction) {
   if (holdInterval) return;
 
   holdInterval = setInterval(() => {
-    if (currentDirection === "up") moveTrowel(0, -1);
-    if (currentDirection === "down") moveTrowel(0, 1);
-    if (currentDirection === "left") moveTrowel(-1, 0);
+    if (currentDirection === "up")    moveTrowel(0, -1);
+    if (currentDirection === "down")  moveTrowel(0, 1);
+    if (currentDirection === "left")  moveTrowel(-1, 0);
     if (currentDirection === "right") moveTrowel(1, 0);
   }, MOVE_INTERVAL);
 }
@@ -383,9 +488,9 @@ window.addEventListener("keydown", e => {
   if (!isLevelRunning) return;
   const k = e.key.toLowerCase();
 
-  if (k === "arrowup" || k === "w") moveTrowel(0, -1);
-  else if (k === "arrowdown" || k === "s") moveTrowel(0, 1);
-  else if (k === "arrowleft" || k === "a") moveTrowel(-1, 0);
+  if (k === "arrowup" || k === "w")      moveTrowel(0, -1);
+  else if (k === "arrowdown" || k === "s")  moveTrowel(0, 1);
+  else if (k === "arrowleft" || k === "a")  moveTrowel(-1, 0);
   else if (k === "arrowright" || k === "d") moveTrowel(1, 0);
 });
 
@@ -463,6 +568,8 @@ function init() {
   const saved = localStorage.getItem("concreteGameBestScore");
   if (saved) bestScore = parseInt(saved);
   document.getElementById("bestDisplay").textContent = bestScore;
+
+  updateLeaderboardSmall();
   setupLevel(currentLevelIndex);
 }
 
