@@ -59,6 +59,10 @@ let currentDirection = null;
 let holdInterval = null;
 const MOVE_INTERVAL = 150;
 
+// START SCREEN FLAGS
+let showStartScreen = true;
+let hasStartedGame = false;
+
 /* ============================================================
    FIREBASE LEADERBOARD (GLOBAL)
 ============================================================ */
@@ -246,8 +250,35 @@ function resizeCanvas() {
 
 window.addEventListener("resize", () => {
   resizeCanvas();
-  if (isLevelRunning) drawGame(0);
+  if (isLevelRunning) {
+    drawGame(0);
+  } else if (showStartScreen) {
+    drawStartScreen();
+  }
 });
+
+/* ============================================================
+   START SCREEN DRAW
+============================================================ */
+function drawStartScreen() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "rgba(0,0,0,0.7)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+
+  ctx.font = "28px Arial";
+  ctx.fillText("Concrete Power Trowel", canvas.width / 2, canvas.height / 2 - 40);
+
+  ctx.font = "20px Arial";
+  ctx.fillText("Press any arrow key or move the joystick to start", canvas.width / 2, canvas.height / 2 + 5);
+
+  ctx.font = "16px Arial";
+  ctx.fillText("Keyboard: Arrow keys or WASD", canvas.width / 2, canvas.height / 2 + 40);
+  ctx.fillText("Mobile: Use the on-screen joystick", canvas.width / 2, canvas.height / 2 + 65);
+}
 
 /* ============================================================
    DRAWING
@@ -297,6 +328,13 @@ function drawGame(gameTime) {
    GAME LOOP
 ============================================================ */
 function gameLoop(timestamp) {
+  // While on start screen, just keep drawing it
+  if (showStartScreen) {
+    drawStartScreen();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
   if (!isLevelRunning) return;
 
   if (!startTimestamp) startTimestamp = timestamp;
@@ -545,10 +583,19 @@ function stopContinuousMove() {
    CONTROLS
 ============================================================ */
 window.addEventListener("keydown", e => {
-  if (!isLevelRunning) return;
   const k = e.key.toLowerCase();
 
-  if (k === "arrowup" || k === "w")      moveTrowel(0, -1);
+  // Start game if on start screen
+  if (showStartScreen) {
+    if (["arrowup","arrowdown","arrowleft","arrowright","w","a","s","d"].includes(k)) {
+      startGameNow();
+    }
+    return;
+  }
+
+  if (!isLevelRunning) return;
+
+  if (k === "arrowup" || k === "w")         moveTrowel(0, -1);
   else if (k === "arrowdown" || k === "s")  moveTrowel(0, 1);
   else if (k === "arrowleft" || k === "a")  moveTrowel(-1, 0);
   else if (k === "arrowright" || k === "d") moveTrowel(1, 0);
@@ -572,6 +619,11 @@ function startJoystick(e) {
 
 function moveJoystick(e) {
   if (!joyActive) return;
+
+  // If we're on the start screen, moving the joystick starts the game
+  if (showStartScreen) {
+    startGameNow();
+  }
 
   const t = e.touches[0];
   const dx = t.clientX - joyCenterX;
@@ -615,7 +667,6 @@ joy.addEventListener("touchstart", startJoystick, { passive: true });
 joy.addEventListener("touchmove",  moveJoystick,  { passive: true });
 joy.addEventListener("touchend",   endJoystick);
 
-
 /* ============================================================
    BUTTONS
 ============================================================ */
@@ -658,6 +709,20 @@ document.getElementById("nextLevelBtn").onclick = () => {
 };
 
 /* ============================================================
+   START GAME LOGIC
+============================================================ */
+function startGameNow() {
+  if (hasStartedGame) return;
+  hasStartedGame = true;
+  showStartScreen = false;
+
+  totalRunScore = 0;
+  currentLevelIndex = 0;
+
+  setupLevel(0);
+}
+
+/* ============================================================
    INIT
 ============================================================ */
 function init() {
@@ -670,7 +735,13 @@ function init() {
   refreshGlobalLeaderboard();
 
   updateLeaderboardSmall();
-  setupLevel(currentLevelIndex);
+
+  // Show start screen on first load
+  showStartScreen = true;
+  hasStartedGame = false;
+  resizeCanvas();
+  drawStartScreen();
+  requestAnimationFrame(gameLoop);
 }
 
 init();
