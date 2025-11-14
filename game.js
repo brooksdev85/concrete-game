@@ -108,7 +108,6 @@ async function submitScoreToFirebase(name, score) {
     await fbAddDoc(fbCollection(fbDb, "leaderboard"), {
       name,
       score,
-      timestamp: Date.now()
     });
   } catch (err) {
     console.error("Error submitting score to Firebase:", err);
