@@ -120,7 +120,7 @@ button {
   position: fixed;
   bottom: 10vh;               /* option B: lifted safely above system bar */
   touch-action: none;
-  display: none;              /* Hidden until first touch */
+  display: flex;              /* Hidden until first touch */
   justify-content: center;
   align-items: center;
   z-index: 99;
