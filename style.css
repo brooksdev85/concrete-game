@@ -105,25 +105,41 @@ button {
 }
 
 /* ============================================================
-   MOBILE JOYSTICK
+   DUAL MOBILE JOYSTICKS (Auto-scaling, option B = bottom 10vh)
 ============================================================ */
-#joystick {
-  width: 120px;
-  height: 120px;
-  background: rgba(255,255,255,0.1);
+
+/* Shared joystick container */
+.dual-joystick {
+  width: 20vw;                /* auto-scales: 20% of screen width */
+  max-width: 130px;           /* upper limit for tablets */
+  min-width: 80px;            /* lower limit for small phones */
+  aspect-ratio: 1/1;          /* keep perfect circle */
+  background: rgba(255,255,255,0.08);
   border: 2px solid rgba(255,255,255,0.25);
   border-radius: 50%;
   position: fixed;
-  display: none;              /* Hidden until the user touches */
+  bottom: 10vh;               /* option B: lifted safely above system bar */
   touch-action: none;
+  display: none;              /* Hidden until first touch */
   justify-content: center;
   align-items: center;
   z-index: 99;
 }
 
-#stick {
-  width: 50px;
-  height: 50px;
+/* LEFT joystick (vertical control) */
+#joystick-left {
+  left: 5vw;                  /* safe distance from screen edge */
+}
+
+/* RIGHT joystick (horizontal control) */
+#joystick-right {
+  right: 5vw;                 /* symmetrical spacing */
+}
+
+/* Inner stick */
+.dual-joystick .stick {
+  width: 40%;
+  height: 40%;
   background: rgba(255,255,255,0.4);
   border-radius: 50%;
   position: absolute;
