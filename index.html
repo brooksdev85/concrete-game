@@ -33,11 +33,15 @@
       <div id="game-container-relative">
         <canvas id="gameCanvas"></canvas>
 
-        <!-- MOBILE JOYSTICK -->
-        <div id="joystick">
-          <div id="stick"></div>
+        <!-- LEFT JOYSTICK (Vertical movement only: up/down) -->
+        <div id="joystick-left" class="dual-joystick">
+          <div class="stick"></div>
         </div>
-        <!-- END JOYSTICK -->
+
+        <!-- RIGHT JOYSTICK (Horizontal movement only: left/right) -->
+        <div id="joystick-right" class="dual-joystick">
+          <div class="stick"></div>
+        </div>
 
         <div id="message-overlay">
           <div id="message-box">
