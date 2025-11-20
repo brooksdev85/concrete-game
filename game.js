@@ -602,30 +602,43 @@ window.addEventListener("keydown", e => {
 });
 
 /* ============================================================
-   MOBILE JOYSTICK (ANALOG MOVEMENT)
+   MOBILE FLOATING JOYSTICK (MUCH BETTER)
 ============================================================ */
+
 const joy = document.getElementById("joystick");
 const stick = document.getElementById("stick");
 
-let joyCenterX, joyCenterY;
 let joyActive = false;
+let joyCenterX = 0;
+let joyCenterY = 0;
 
-const maxDist = 40;      // joystick radius
-const deadZone = 5;      // ignore tiny input (prevents jitter)
-const maxSpeed = 1;      // move 1 tile per tick
+// joystick radius
+const JOY_RADIUS = 60;
+const DEAD_ZONE = 10;
 
-function startJoystick(e) {
+// Floating joystick starts hidden
+joy.style.display = "none";
+
+// Touch start anywhere on game area
+window.addEventListener("touchstart", (e) => {
+  const t = e.touches[0];
+
   joyActive = true;
 
-  const rect = joy.getBoundingClientRect();
-  joyCenterX = rect.left + rect.width / 2;
-  joyCenterY = rect.top + rect.height / 2;
+  // Center joystick under thumb
+  joyCenterX = t.clientX;
+  joyCenterY = t.clientY;
 
-  // Start game if on start screen
+  // Position joystick container
+  joy.style.left = (joyCenterX - JOY_RADIUS) + "px";
+  joy.style.top = (joyCenterY - JOY_RADIUS) + "px";
+  joy.style.display = "flex";
+
+  // Start game if start screen
   if (showStartScreen) startGameNow();
-}
+});
 
-function moveJoystick(e) {
+window.addEventListener("touchmove", (e) => {
   if (!joyActive) return;
 
   const t = e.touches[0];
@@ -633,50 +646,46 @@ function moveJoystick(e) {
   const dy = t.clientY - joyCenterY;
 
   const dist = Math.sqrt(dx * dx + dy * dy);
+  const maxMove = JOY_RADIUS - 20;
 
-  // Clamp stick to circle edge
+  // Clamp stick to edge
   let clampedX = dx;
   let clampedY = dy;
-  if (dist > maxDist) {
-    const ratio = maxDist / dist;
-    clampedX = dx * ratio;
-    clampedY = dy * ratio;
+
+  if (dist > maxMove) {
+    clampedX = (dx / dist) * maxMove;
+    clampedY = (dy / dist) * maxMove;
   }
 
-  // Move visual stick
   stick.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
 
-  // DEAD ZONE (fixes “must re-center” issue)
-  if (dist < deadZone) {
+  // Dead zone to prevent tiny jitters
+  if (dist < DEAD_ZONE) {
     stopContinuousMove();
     return;
   }
 
-  // Calculate analog direction
-  const normX = clampedX / maxDist;
-  const normY = clampedY / maxDist;
-
   // Determine dominant direction
+  const absX = Math.abs(clampedX);
+  const absY = Math.abs(clampedY);
+
   let direction = null;
 
-  if (Math.abs(normX) > Math.abs(normY)) {
-    direction = normX > 0 ? "right" : "left";
+  if (absX > absY) {
+    direction = clampedX > 0 ? "right" : "left";
   } else {
-    direction = normY > 0 ? "down" : "up";
+    direction = clampedY > 0 ? "down" : "up";
   }
 
   startContinuousMove(direction);
-}
+});
 
-function endJoystick() {
+window.addEventListener("touchend", () => {
   joyActive = false;
+  joy.style.display = "none";
   stick.style.transform = "translate(0px,0px)";
   stopContinuousMove();
-}
-
-joy.addEventListener("touchstart", startJoystick, { passive: true });
-joy.addEventListener("touchmove",  moveJoystick,  { passive: true });
-joy.addEventListener("touchend",   endJoystick);
+});
 
 
 /* ============================================================
