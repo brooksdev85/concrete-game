@@ -634,7 +634,7 @@ window.addEventListener("touchstart", (e) => {
   joy.style.top = (joyCenterY - JOY_RADIUS) + "px";
   joy.style.display = "flex";
 
-  // Start game if start screen
+  // Start game if on start screen
   if (showStartScreen) startGameNow();
 });
 
@@ -648,7 +648,7 @@ window.addEventListener("touchmove", (e) => {
   const dist = Math.sqrt(dx * dx + dy * dy);
   const maxMove = JOY_RADIUS - 20;
 
-  // Clamp stick to edge
+  // Clamp stick visual
   let clampedX = dx;
   let clampedY = dy;
 
@@ -659,25 +659,32 @@ window.addEventListener("touchmove", (e) => {
 
   stick.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
 
-  // Dead zone to prevent tiny jitters
+  // Dead zone = stop movement
   if (dist < DEAD_ZONE) {
     stopContinuousMove();
     return;
   }
 
-  // Determine dominant direction
+  // NEW — Proper diagonal → axis resolution
   const absX = Math.abs(clampedX);
   const absY = Math.abs(clampedY);
 
   let direction = null;
 
+  // Choose axis with strongest input
   if (absX > absY) {
     direction = clampedX > 0 ? "right" : "left";
   } else {
     direction = clampedY > 0 ? "down" : "up";
   }
 
-  startContinuousMove(direction);
+  // Instant direction change (no waiting for interval tick)
+  currentDirection = direction;
+
+  // Start movement loop only if not running
+  if (!holdInterval) {
+    startContinuousMove(direction);
+  }
 });
 
 window.addEventListener("touchend", () => {
@@ -686,7 +693,6 @@ window.addEventListener("touchend", () => {
   stick.style.transform = "translate(0px,0px)";
   stopContinuousMove();
 });
-
 
 /* ============================================================
    BUTTONS
