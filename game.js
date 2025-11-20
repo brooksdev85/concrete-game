@@ -624,7 +624,7 @@ let rightActive = false;
 joyLeft.addEventListener("touchstart", (e) => {
   leftActive = true;
 
-  joyLeft.style.display = "flex";
+  // Start game if on start screen
   if (showStartScreen) startGameNow();
 });
 
@@ -654,7 +654,7 @@ joyLeft.addEventListener("touchmove", (e) => {
     return;
   }
 
-  let direction = dy < 0 ? "up" : "down";
+  const direction = dy < 0 ? "up" : "down";
 
   currentDirection = direction;
   if (!holdInterval) startContinuousMove(direction);
@@ -663,7 +663,6 @@ joyLeft.addEventListener("touchmove", (e) => {
 joyLeft.addEventListener("touchend", () => {
   leftActive = false;
   stickLeft.style.transform = "translate(0,0)";
-  joyLeft.style.display = "none";
   stopContinuousMove();
 });
 
@@ -672,7 +671,7 @@ joyLeft.addEventListener("touchend", () => {
 joyRight.addEventListener("touchstart", (e) => {
   rightActive = true;
 
-  joyRight.style.display = "flex";
+  // Start game if on start screen
   if (showStartScreen) startGameNow();
 });
 
@@ -702,7 +701,7 @@ joyRight.addEventListener("touchmove", (e) => {
     return;
   }
 
-  let direction = dx < 0 ? "left" : "right";
+  const direction = dx < 0 ? "left" : "right";
 
   currentDirection = direction;
   if (!holdInterval) startContinuousMove(direction);
@@ -711,7 +710,6 @@ joyRight.addEventListener("touchmove", (e) => {
 joyRight.addEventListener("touchend", () => {
   rightActive = false;
   stickRight.style.transform = "translate(0,0)";
-  joyRight.style.display = "none";
   stopContinuousMove();
 });
 
