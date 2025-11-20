@@ -580,28 +580,6 @@ function stopContinuousMove() {
 }
 
 /* ============================================================
-   CONTROLS
-============================================================ */
-window.addEventListener("keydown", e => {
-  const k = e.key.toLowerCase();
-
-  // Start game if on start screen
-  if (showStartScreen) {
-    if (["arrowup","arrowdown","arrowleft","arrowright","w","a","s","d"].includes(k)) {
-      startGameNow();
-    }
-    return;
-  }
-
-  if (!isLevelRunning) return;
-
-  if (k === "arrowup" || k === "w")         moveTrowel(0, -1);
-  else if (k === "arrowdown" || k === "s")  moveTrowel(0, 1);
-  else if (k === "arrowleft" || k === "a")  moveTrowel(-1, 0);
-  else if (k === "arrowright" || k === "d") moveTrowel(1, 0);
-});
-
-/* ============================================================
    DUAL JOYSTICKS (Left = Up/Down, Right = Left/Right)
 ============================================================ */
 
@@ -654,19 +632,17 @@ joyLeft.addEventListener("touchmove", (e) => {
 
   const direction = dy < 0 ? "up" : "down";
 
-  // Update direction immediately (smooth switching)
+  // Smooth, last-touch-wins
   currentDirection = direction;
 
-  // Start interval if needed
+  // Start movement loop if not running
   if (!holdInterval) startContinuousMove(direction);
 });
 
 joyLeft.addEventListener("touchend", () => {
   leftActive = false;
   stickLeft.style.transform = "translate(0,0)";
-
-  // If right joystick is not active, stop movement
-  if (!rightActive) stopContinuousMove();
+  stopContinuousMove();
 });
 
 
@@ -705,19 +681,17 @@ joyRight.addEventListener("touchmove", (e) => {
 
   const direction = dx < 0 ? "left" : "right";
 
-  // Update direction immediately
+  // Smooth, last-touch-wins
   currentDirection = direction;
 
-  // Start interval if needed
+  // Start movement loop if not running
   if (!holdInterval) startContinuousMove(direction);
 });
 
 joyRight.addEventListener("touchend", () => {
   rightActive = false;
   stickRight.style.transform = "translate(0,0)";
-
-  // If left joystick is not active, stop movement
-  if (!leftActive) stopContinuousMove();
+  stopContinuousMove();
 });
 
 /* ============================================================
