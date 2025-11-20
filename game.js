@@ -652,6 +652,11 @@ joyLeft.addEventListener("touchend", () => {
 
 joyRight.addEventListener("touchstart", (e) => {
   rightActive = true;
+
+  // visually center the stick
+  stickRight.style.transform = "translate(0px, 0px)";
+
+  // prepare the joystick for reading
   if (showStartScreen) startGameNow();
 });
 
@@ -661,30 +666,30 @@ joyRight.addEventListener("touchmove", (e) => {
   const rect = joyRight.getBoundingClientRect();
   const t = e.touches[0];
 
+  // compute dx from the CENTER of the joystick
   const dx = t.clientX - (rect.left + rect.width / 2);
-  const dy = t.clientY - (rect.top + rect.height / 2);
 
   const r = getRadius(joyRight);
-  const dist = Math.sqrt(dx * dx + dy * dy);
   const maxMove = r * 0.6;
 
+  // clamp stick horizontally
   let cx = dx;
-  if (dist > maxMove) cx = (dx / dist) * maxMove;
+  if (Math.abs(dx) > maxMove) {
+    cx = (dx / Math.abs(dx)) * maxMove;
+  }
 
   stickRight.style.transform = `translate(${cx}px, 0px)`;
 
-  // Dead zone
-  if (Math.abs(dx) < 8) {
+  // DEAD ZONE so slight left-touch doesn't register as LEFT
+  if (Math.abs(dx) < 12) {
     stopContinuousMove();
     return;
   }
 
+  // direction detection AFTER clearing dead zone
   const direction = dx < 0 ? "left" : "right";
 
-  // Smooth, last-touch-wins
   currentDirection = direction;
-
-  // Start movement loop if not running
   if (!holdInterval) startContinuousMove(direction);
 });
 
