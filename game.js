@@ -619,12 +619,12 @@ function getRadius(el) {
 let leftActive = false;
 let rightActive = false;
 
-// ------------ LEFT JOYSTICK (UP/DOWN) ------------
+/* ================================
+   LEFT JOYSTICK (UP/DOWN ONLY)
+================================= */
 
 joyLeft.addEventListener("touchstart", (e) => {
   leftActive = true;
-
-  // Start game if on start screen
   if (showStartScreen) startGameNow();
 });
 
@@ -642,9 +642,7 @@ joyLeft.addEventListener("touchmove", (e) => {
   const maxMove = r * 0.6;
 
   let cy = dy;
-  if (dist > maxMove) {
-    cy = (dy / dist) * maxMove;
-  }
+  if (dist > maxMove) cy = (dy / dist) * maxMove;
 
   stickLeft.style.transform = `translate(0px, ${cy}px)`;
 
@@ -656,22 +654,28 @@ joyLeft.addEventListener("touchmove", (e) => {
 
   const direction = dy < 0 ? "up" : "down";
 
+  // Update direction immediately (smooth switching)
   currentDirection = direction;
+
+  // Start interval if needed
   if (!holdInterval) startContinuousMove(direction);
 });
 
 joyLeft.addEventListener("touchend", () => {
   leftActive = false;
   stickLeft.style.transform = "translate(0,0)";
-  stopContinuousMove();
+
+  // If right joystick is not active, stop movement
+  if (!rightActive) stopContinuousMove();
 });
 
-// ------------ RIGHT JOYSTICK (LEFT/RIGHT) ------------
+
+/* ================================
+   RIGHT JOYSTICK (LEFT/RIGHT ONLY)
+================================= */
 
 joyRight.addEventListener("touchstart", (e) => {
   rightActive = true;
-
-  // Start game if on start screen
   if (showStartScreen) startGameNow();
 });
 
@@ -689,9 +693,7 @@ joyRight.addEventListener("touchmove", (e) => {
   const maxMove = r * 0.6;
 
   let cx = dx;
-  if (dist > maxMove) {
-    cx = (dx / dist) * maxMove;
-  }
+  if (dist > maxMove) cx = (dx / dist) * maxMove;
 
   stickRight.style.transform = `translate(${cx}px, 0px)`;
 
@@ -703,14 +705,19 @@ joyRight.addEventListener("touchmove", (e) => {
 
   const direction = dx < 0 ? "left" : "right";
 
+  // Update direction immediately
   currentDirection = direction;
+
+  // Start interval if needed
   if (!holdInterval) startContinuousMove(direction);
 });
 
 joyRight.addEventListener("touchend", () => {
   rightActive = false;
   stickRight.style.transform = "translate(0,0)";
-  stopContinuousMove();
+
+  // If left joystick is not active, stop movement
+  if (!leftActive) stopContinuousMove();
 });
 
 /* ============================================================
