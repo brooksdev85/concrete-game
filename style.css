@@ -114,7 +114,7 @@ button {
   border: 2px solid rgba(255,255,255,0.25);
   border-radius: 50%;
   position: fixed;
-  display: none;              /* ← important: hidden until touch */
+  display: none;              /* Hidden until the user touches */
   touch-action: none;
   justify-content: center;
   align-items: center;
