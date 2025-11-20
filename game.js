@@ -580,7 +580,8 @@ function stopContinuousMove() {
 }
 
 /* ============================================================
-   DUAL JOYSTICKS (Left = Up/Down, Right = Left/Right)
+   DUAL JOYSTICKS — MULTI-TOUCH SAFE
+   (Left = Up/Down, Right = Left/Right)
 ============================================================ */
 
 const joyLeft = document.getElementById("joystick-left");
@@ -589,114 +590,109 @@ const joyRight = document.getElementById("joystick-right");
 const stickLeft = joyLeft.querySelector(".stick");
 const stickRight = joyRight.querySelector(".stick");
 
-// Auto-scaled joystick radius (based on CSS)
+let leftTouchId = null;
+let rightTouchId = null;
+
+// Get radius for clamping
 function getRadius(el) {
   return el.getBoundingClientRect().width / 2;
 }
 
-let leftActive = false;
-let rightActive = false;
-
 /* ================================
-   LEFT JOYSTICK (UP/DOWN ONLY)
+   LEFT JOYSTICK (UP/DOWN)
 ================================= */
 
 joyLeft.addEventListener("touchstart", (e) => {
-  leftActive = true;
+  const touch = e.changedTouches[0];
+  leftTouchId = touch.identifier;
+
   if (showStartScreen) startGameNow();
 });
 
 joyLeft.addEventListener("touchmove", (e) => {
-  if (!leftActive) return;
+  // Only use the touch that belongs to this joystick
+  const touch = [...e.changedTouches].find(t => t.identifier === leftTouchId);
+  if (!touch) return;
 
   const rect = joyLeft.getBoundingClientRect();
-  const t = e.touches[0];
-
-  const dx = t.clientX - (rect.left + rect.width / 2);
-  const dy = t.clientY - (rect.top + rect.height / 2);
+  const dy = touch.clientY - (rect.top + rect.height / 2);
 
   const r = getRadius(joyLeft);
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  const maxMove = r * 0.6;
-
   let cy = dy;
-  if (dist > maxMove) cy = (dy / dist) * maxMove;
+
+  if (Math.abs(dy) > r * 0.6)
+    cy = (dy / Math.abs(dy)) * (r * 0.6);
 
   stickLeft.style.transform = `translate(0px, ${cy}px)`;
 
-  // Dead zone
-  if (Math.abs(dy) < 8) {
+  if (Math.abs(dy) < 10) {
     stopContinuousMove();
     return;
   }
 
   const direction = dy < 0 ? "up" : "down";
-
-  // Smooth, last-touch-wins
   currentDirection = direction;
 
-  // Start movement loop if not running
   if (!holdInterval) startContinuousMove(direction);
 });
 
-joyLeft.addEventListener("touchend", () => {
-  leftActive = false;
+joyLeft.addEventListener("touchend", (e) => {
+  const touch = [...e.changedTouches].find(t => t.identifier === leftTouchId);
+  if (!touch) return;
+
   stickLeft.style.transform = "translate(0,0)";
-  stopContinuousMove();
+  leftTouchId = null;
+
+  // Only stop if right joystick is ALSO not active
+  if (rightTouchId === null) stopContinuousMove();
 });
 
 
 /* ================================
-   RIGHT JOYSTICK (LEFT/RIGHT ONLY)
+   RIGHT JOYSTICK (LEFT/RIGHT)
 ================================= */
 
 joyRight.addEventListener("touchstart", (e) => {
-  rightActive = true;
+  const touch = e.changedTouches[0];
+  rightTouchId = touch.identifier;
 
-  // visually center the stick
-  stickRight.style.transform = "translate(0px, 0px)";
-
-  // prepare the joystick for reading
   if (showStartScreen) startGameNow();
 });
 
 joyRight.addEventListener("touchmove", (e) => {
-  if (!rightActive) return;
+  const touch = [...e.changedTouches].find(t => t.identifier === rightTouchId);
+  if (!touch) return;
 
   const rect = joyRight.getBoundingClientRect();
-  const t = e.touches[0];
-
-  // compute dx from the CENTER of the joystick
-  const dx = t.clientX - (rect.left + rect.width / 2);
+  const dx = touch.clientX - (rect.left + rect.width / 2);
 
   const r = getRadius(joyRight);
-  const maxMove = r * 0.6;
-
-  // clamp stick horizontally
   let cx = dx;
-  if (Math.abs(dx) > maxMove) {
-    cx = (dx / Math.abs(dx)) * maxMove;
-  }
+
+  if (Math.abs(dx) > r * 0.6)
+    cx = (dx / Math.abs(dx)) * (r * 0.6);
 
   stickRight.style.transform = `translate(${cx}px, 0px)`;
 
-  // DEAD ZONE so slight left-touch doesn't register as LEFT
-  if (Math.abs(dx) < 12) {
+  if (Math.abs(dx) < 10) {
     stopContinuousMove();
     return;
   }
 
-  // direction detection AFTER clearing dead zone
   const direction = dx < 0 ? "left" : "right";
-
   currentDirection = direction;
+
   if (!holdInterval) startContinuousMove(direction);
 });
 
-joyRight.addEventListener("touchend", () => {
-  rightActive = false;
+joyRight.addEventListener("touchend", (e) => {
+  const touch = [...e.changedTouches].find(t => t.identifier === rightTouchId);
+  if (!touch) return;
+
   stickRight.style.transform = "translate(0,0)";
-  stopContinuousMove();
+  rightTouchId = null;
+
+  if (leftTouchId === null) stopContinuousMove();
 });
 
 /* ============================================================
