@@ -51,13 +51,16 @@ let bestScore = 0;
 // Total score for this run (completed levels so far)
 let totalRunScore = 0;
 
-let touchStartX = null;
-let touchStartY = null;
-
 /* Swipe + hold */
 let currentDirection = null;
 let holdInterval = null;
-const MOVE_INTERVAL = 150;
+
+// Faster + smoother than 150, but still safe (won’t “skip” tiles)
+const MOVE_INTERVAL = 95;
+
+// Prevent double-steps when flicking directions fast
+let lastMoveAt = 0;
+const MIN_STEP_MS = 60;
 
 // START SCREEN FLAGS
 let showStartScreen = true;
@@ -391,16 +394,13 @@ function updateHUD() {
   document.getElementById("levelDisplay").textContent = currentLevelIndex + 1;
   document.getElementById("timeDisplay").textContent = Math.ceil(timeRemaining);
 
-  let perfect = 0;     // tiles at stage 5
-  let levelScore = 0;  // passes this level only
+  let perfect = 0;     
+  let levelScore = 0;  
 
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const t = tiles[y][x];
-
-      // Perfect = tiles that reached stage 5 (passes >= PASSES_TO_FINISH)
       if (t.passes >= PASSES_TO_FINISH) perfect++;
-
       levelScore += t.passes;
     }
   }
@@ -420,7 +420,6 @@ function updateHUD() {
 
   document.getElementById("bestDisplay").textContent = bestScore;
 
-  // Keep small leaderboard visible (global)
   updateLeaderboardSmall();
 }
 
@@ -430,7 +429,7 @@ function updateHUD() {
 function finishLevel() {
   isLevelRunning = false;
 
-  let perfect = 0; // tiles at stage 5
+  let perfect = 0; 
   let partial = 0;
   let total = cols * rows;
   let totalPasses = 0;
@@ -440,32 +439,23 @@ function finishLevel() {
       const t = tiles[y][x];
       totalPasses += t.passes;
 
-      // PERFECT = tile reached stage 5 (5 passes)
-      if (t.passes >= PASSES_TO_FINISH) {
-        perfect++;
-      } else if (t.passes > 0) {
-        partial++;
-      }
+      if (t.passes >= PASSES_TO_FINISH) perfect++;
+      else if (t.passes > 0) partial++;
     }
   }
 
-  // Add this level's passes to the run score
   totalRunScore += totalPasses;
 
-  // Update best score based on full run score so far
   if (totalRunScore > bestScore) {
     bestScore = totalRunScore;
     localStorage.setItem("concreteGameBestScore", bestScore);
     document.getElementById("bestDisplay").textContent = bestScore;
   }
 
-  // Must hit 80% of tiles at stage 5 to pass
   const pct = Math.round((perfect / total) * 100);
   const passed = pct >= 80;
 
-  const title = passed
-    ? "Level Passed!"
-    : "Game Over";
+  const title = passed ? "Level Passed!" : "Game Over";
 
   document.getElementById("message-title").textContent = title;
   document.getElementById("message-body").textContent =
@@ -478,12 +468,9 @@ function finishLevel() {
     `Stage 5 tiles: ${perfect}/${total} (${pct}%) · Partial: ${partial} · Passes this level: ${totalPasses}`;
 
   const messageDetails = document.getElementById("message-details");
-
-  // Default details (before leaderboard)
   let detailsHtml = baseDetails;
 
   if (!passed) {
-    // On fail: if top 5, ask name (arcade style 3 letters) and submit to Firebase
     if (qualifiesForLeaderboard(totalRunScore)) {
       let defaultName = playerName || "AAA";
       let name = prompt(
@@ -496,17 +483,14 @@ function finishLevel() {
       playerName = name;
       localStorage.setItem("concretePlayerName", playerName);
 
-      // Optimistically add to local snapshot so UI updates instantly
       globalLeaderboard.push({ name: playerName, score: totalRunScore });
       globalLeaderboard.sort((a, b) => b.score - a.score);
       globalLeaderboard = globalLeaderboard.slice(0, 5);
       updateLeaderboardSmall();
 
-      // Fire-and-forget submit to Firebase
       submitScoreToFirebase(playerName, totalRunScore);
     }
 
-    // Build big leaderboard for overlay (from current snapshot)
     const leaderboardHtml = buildLeaderboardHtml();
     detailsHtml = baseDetails + leaderboardHtml;
   }
@@ -517,7 +501,6 @@ function finishLevel() {
   document.getElementById("nextLevelBtn").textContent =
     passed ? "Next level ▶" : "Try again 🔁";
 
-  // Store result for button handler
   document.getElementById("nextLevelBtn").dataset.passed = passed;
 }
 
@@ -533,10 +516,14 @@ function hideMessage() {
 }
 
 /* ============================================================
-   MOVEMENT
+   MOVEMENT (optimized direction switching)
 ============================================================ */
 function moveTrowel(dx, dy) {
   if (!isLevelRunning) return;
+
+  const now = performance.now();
+  if (now - lastMoveAt < MIN_STEP_MS) return; // anti-jitter guard
+  lastMoveAt = now;
 
   const nx = trowelX + dx;
   const ny = trowelY + dy;
@@ -558,17 +545,34 @@ function moveTrowel(dx, dy) {
   }
 }
 
-function startContinuousMove(direction) {
-  currentDirection = direction;
+// Centralized, responsive direction setter
+function setDirection(direction) {
+  if (!direction) return;
 
-  if (holdInterval) return;
+  if (currentDirection !== direction) {
+    currentDirection = direction;
 
-  holdInterval = setInterval(() => {
-    if (currentDirection === "up")    moveTrowel(0, -1);
-    if (currentDirection === "down")  moveTrowel(0, 1);
-    if (currentDirection === "left")  moveTrowel(-1, 0);
-    if (currentDirection === "right") moveTrowel(1, 0);
-  }, MOVE_INTERVAL);
+    // immediate step when changing direction
+    if (direction === "up")    moveTrowel(0, -1);
+    if (direction === "down")  moveTrowel(0, 1);
+    if (direction === "left")  moveTrowel(-1, 0);
+    if (direction === "right") moveTrowel(1, 0);
+
+    // restart interval so new direction feels instant
+    if (holdInterval) {
+      clearInterval(holdInterval);
+      holdInterval = null;
+    }
+  }
+
+  if (!holdInterval) {
+    holdInterval = setInterval(() => {
+      if (currentDirection === "up")    moveTrowel(0, -1);
+      if (currentDirection === "down")  moveTrowel(0, 1);
+      if (currentDirection === "left")  moveTrowel(-1, 0);
+      if (currentDirection === "right") moveTrowel(1, 0);
+    }, MOVE_INTERVAL);
+  }
 }
 
 function stopContinuousMove() {
@@ -580,120 +584,132 @@ function stopContinuousMove() {
 }
 
 /* ============================================================
-   DUAL JOYSTICKS — MULTI-TOUCH SAFE
-   (Left = Up/Down, Right = Left/Right)
+   CONTROLS (keyboard)
 ============================================================ */
+window.addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
 
-const joyLeft = document.getElementById("joystick-left");
-const joyRight = document.getElementById("joystick-right");
+  if (showStartScreen) {
+    if (["arrowup","arrowdown","arrowleft","arrowright","w","a","s","d"].includes(k)) {
+      startGameNow();
+    }
+    return;
+  }
 
-const stickLeft = joyLeft.querySelector(".stick");
-const stickRight = joyRight.querySelector(".stick");
+  if (!isLevelRunning) return;
 
-let leftTouchId = null;
-let rightTouchId = null;
-
-// Get radius for clamping
-function getRadius(el) {
-  return el.getBoundingClientRect().width / 2;
-}
-
-/* ================================
-   LEFT JOYSTICK (UP/DOWN)
-================================= */
-
-joyLeft.addEventListener("touchstart", (e) => {
-  const touch = e.changedTouches[0];
-  leftTouchId = touch.identifier;
-
-  if (showStartScreen) startGameNow();
+  if (k === "arrowup" || k === "w")         moveTrowel(0, -1);
+  else if (k === "arrowdown" || k === "s")  moveTrowel(0, 1);
+  else if (k === "arrowleft" || k === "a")  moveTrowel(-1, 0);
+  else if (k === "arrowright" || k === "d") moveTrowel(1, 0);
 });
 
-joyLeft.addEventListener("touchmove", (e) => {
-  // Only use the touch that belongs to this joystick
-  const touch = [...e.changedTouches].find(t => t.identifier === leftTouchId);
+/* ============================================================
+   SINGLE FLOATING JOYSTICK (Option A, pro feel)
+============================================================ */
+const joy = document.getElementById("joystick");
+const stick = document.getElementById("stick");
+const gameArea = document.getElementById("game-container-relative");
+
+let joyActive = false;
+let joyTouchId = null;
+let joyCenterX = 0;
+let joyCenterY = 0;
+
+// radius matches CSS scale; use fixed logic radius for direction
+const JOY_RADIUS = 60;
+const DEAD_ZONE = 10;
+const DOMINANCE_RATIO = 1.15; // hysteresis for clean snaps
+
+joy.style.display = "none";
+
+// Touch start anywhere in game area
+gameArea.addEventListener("touchstart", (e) => {
+  const touch = e.changedTouches[0];
+  joyTouchId = touch.identifier;
+  joyActive = true;
+
+  joyCenterX = touch.clientX;
+  joyCenterY = touch.clientY;
+
+  joy.style.left = (joyCenterX - JOY_RADIUS) + "px";
+  joy.style.top = (joyCenterY - JOY_RADIUS) + "px";
+  joy.style.display = "flex";
+
+  if (showStartScreen) startGameNow();
+}, { passive: true });
+
+gameArea.addEventListener("touchmove", (e) => {
+  if (!joyActive) return;
+
+  const touch = [...e.changedTouches].find(t => t.identifier === joyTouchId);
   if (!touch) return;
 
-  const rect = joyLeft.getBoundingClientRect();
-  const dy = touch.clientY - (rect.top + rect.height / 2);
+  // prevent page scroll while joystick is active
+  e.preventDefault();
 
-  const r = getRadius(joyLeft);
-  let cy = dy;
+  const dx = touch.clientX - joyCenterX;
+  const dy = touch.clientY - joyCenterY;
 
-  if (Math.abs(dy) > r * 0.6)
-    cy = (dy / Math.abs(dy)) * (r * 0.6);
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const maxMove = JOY_RADIUS - 18;
 
-  stickLeft.style.transform = `translate(0px, ${cy}px)`;
+  let clampedX = dx;
+  let clampedY = dy;
 
-  if (Math.abs(dy) < 10) {
+  if (dist > maxMove) {
+    const scale = maxMove / dist;
+    clampedX = dx * scale;
+    clampedY = dy * scale;
+  }
+
+  stick.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+
+  if (dist < DEAD_ZONE) {
     stopContinuousMove();
     return;
   }
 
-  const direction = dy < 0 ? "up" : "down";
-  currentDirection = direction;
+  const absX = Math.abs(clampedX);
+  const absY = Math.abs(clampedY);
 
-  if (!holdInterval) startContinuousMove(direction);
-});
+  let direction;
 
-joyLeft.addEventListener("touchend", (e) => {
-  const touch = [...e.changedTouches].find(t => t.identifier === leftTouchId);
-  if (!touch) return;
-
-  stickLeft.style.transform = "translate(0,0)";
-  leftTouchId = null;
-
-  // Only stop if right joystick is ALSO not active
-  if (rightTouchId === null) stopContinuousMove();
-});
-
-
-/* ================================
-   RIGHT JOYSTICK (LEFT/RIGHT)
-================================= */
-
-joyRight.addEventListener("touchstart", (e) => {
-  const touch = e.changedTouches[0];
-  rightTouchId = touch.identifier;
-
-  if (showStartScreen) startGameNow();
-});
-
-joyRight.addEventListener("touchmove", (e) => {
-  const touch = [...e.changedTouches].find(t => t.identifier === rightTouchId);
-  if (!touch) return;
-
-  const rect = joyRight.getBoundingClientRect();
-  const dx = touch.clientX - (rect.left + rect.width / 2);
-
-  const r = getRadius(joyRight);
-  let cx = dx;
-
-  if (Math.abs(dx) > r * 0.6)
-    cx = (dx / Math.abs(dx)) * (r * 0.6);
-
-  stickRight.style.transform = `translate(${cx}px, 0px)`;
-
-  if (Math.abs(dx) < 10) {
-    stopContinuousMove();
-    return;
+  // Strong axis wins, weak diagonal keeps last direction (feels pro)
+  if (absX > absY * DOMINANCE_RATIO) {
+    direction = clampedX > 0 ? "right" : "left";
+  } else if (absY > absX * DOMINANCE_RATIO) {
+    direction = clampedY > 0 ? "down" : "up";
+  } else {
+    // near diagonal: keep last direction if possible, otherwise fall back on bigger axis
+    direction = currentDirection || (absX >= absY
+      ? (clampedX > 0 ? "right" : "left")
+      : (clampedY > 0 ? "down" : "up"));
   }
 
-  const direction = dx < 0 ? "left" : "right";
-  currentDirection = direction;
+  setDirection(direction);
+}, { passive: false });
 
-  if (!holdInterval) startContinuousMove(direction);
-});
-
-joyRight.addEventListener("touchend", (e) => {
-  const touch = [...e.changedTouches].find(t => t.identifier === rightTouchId);
+gameArea.addEventListener("touchend", (e) => {
+  const touch = [...e.changedTouches].find(t => t.identifier === joyTouchId);
   if (!touch) return;
 
-  stickRight.style.transform = "translate(0,0)";
-  rightTouchId = null;
+  joyActive = false;
+  joyTouchId = null;
 
-  if (leftTouchId === null) stopContinuousMove();
-});
+  joy.style.display = "none";
+  stick.style.transform = "translate(0px,0px)";
+  stopContinuousMove();
+}, { passive: true });
+
+gameArea.addEventListener("touchcancel", () => {
+  joyActive = false;
+  joyTouchId = null;
+
+  joy.style.display = "none";
+  stick.style.transform = "translate(0px,0px)";
+  stopContinuousMove();
+}, { passive: true });
 
 /* ============================================================
    BUTTONS
@@ -723,13 +739,10 @@ document.getElementById("nextLevelBtn").onclick = () => {
   const passed = document.getElementById("nextLevelBtn").dataset.passed === "true";
 
   if (passed) {
-    // Continue run
     if (currentLevelIndex < levels.length - 1) currentLevelIndex++;
-    else currentLevelIndex = 0; // Loop after final level
-
+    else currentLevelIndex = 0;
     setupLevel(currentLevelIndex);
   } else {
-    // Failed — reset run
     totalRunScore = 0;
     currentLevelIndex = 0;
     setupLevel(0);
@@ -758,13 +771,10 @@ function init() {
   if (saved) bestScore = parseInt(saved);
   document.getElementById("bestDisplay").textContent = bestScore;
 
-  // Set up Firebase refs and load global leaderboard
   initFirebaseRefs();
   refreshGlobalLeaderboard();
-
   updateLeaderboardSmall();
 
-  // Show start screen on first load
   showStartScreen = true;
   hasStartedGame = false;
   resizeCanvas();
