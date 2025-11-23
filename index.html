@@ -2,6 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+
+  <!-- Disable ALL scrolling + touch movement INSIDE the game iframe -->
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden !important;          /* NO scrolling */
+      touch-action: none !important;        /* NO swipe scroll */
+      overscroll-behavior: none !important; /* NO pull-to-refresh */
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    /* Lock touch inside game area */
+    #game-container-relative,
+    #gameCanvas,
+    #joystick,
+    #stick {
+      touch-action: none !important;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+  </style>
+
   <title>Concrete Power Trowel Game</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
@@ -74,7 +99,6 @@
       getDocs
     } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
-    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBgA-U1pCbmpmq-pa_GXRHVyQ1xbr5ZBuQ",
       authDomain: "power-trowel-game.firebaseapp.com",
@@ -84,11 +108,9 @@
       appId: "1:1094565181158:web:634ea8ef9599d92eaa2d27"
     };
 
-    // Init Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Expose Firestore to game.js
     window._firebase = {
       db,
       addDoc,
@@ -104,7 +126,7 @@
   <script>
     window.addEventListener("DOMContentLoaded", () => {
       const script = document.createElement("script");
-      script.src = "game.js?v=" + Date.now();
+      script.src = "game.js?v=" + Date.now();  // bust cache
       document.body.appendChild(script);
     });
   </script>
