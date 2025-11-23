@@ -604,6 +604,15 @@ const JOY_RADIUS = 60;        // matches CSS / comfortable thumb zone
 const DEAD_ZONE = 10;
 const DOMINANCE_RATIO = 1.15; // diagonal hysteresis (feels pro)
 
+/* ============================================================
+   PREVENT PAGE SCROLL WHILE JOYSTICK IS ACTIVE
+============================================================ */
+document.body.addEventListener("touchmove", function (e) {
+  if (joyActive) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
 joy.style.display = "none";
 
 // helper so joystick doesn't spawn on top-bar/buttons/overlay
