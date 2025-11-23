@@ -105,43 +105,44 @@ button {
 }
 
 /* ============================================================
-   DUAL MOBILE JOYSTICKS (Auto-scaling, option B = bottom 10vh)
+   SINGLE FLOATING JOYSTICK (Optimized version)
 ============================================================ */
 
-/* Shared joystick container */
-.dual-joystick {
-  width: 20vw;                /* auto-scales: 20% of screen width */
-  max-width: 130px;           /* upper limit for tablets */
-  min-width: 80px;            /* lower limit for small phones */
-  aspect-ratio: 1/1;          /* keep perfect circle */
-  background: rgba(255,255,255,0.08);
+#joystick {
+  width: 22vw;                  /* auto scales with screen */
+  max-width: 140px;
+  min-width: 85px;
+  aspect-ratio: 1/1;
+  background: rgba(255,255,255,0.06);
   border: 2px solid rgba(255,255,255,0.25);
   border-radius: 50%;
   position: fixed;
-  bottom: 10vh;               /* option B: lifted safely above system bar */
+  bottom: 9vh;                  /* safe distance above home bar */
+  left: 6vw;                    /* ergonomic distance from edge */
   touch-action: none;
-  display: flex;              /* Hidden until first touch */
+  display: none;                /* appears only when touched */
   justify-content: center;
   align-items: center;
   z-index: 99;
+  backdrop-filter: blur(6px);   /* premium look */
 }
 
-/* LEFT joystick (vertical control) */
-#joystick-left {
-  left: 5vw;                  /* safe distance from screen edge */
-}
-
-/* RIGHT joystick (horizontal control) */
-#joystick-right {
-  right: 5vw;                 /* symmetrical spacing */
-}
-
-/* Inner stick */
-.dual-joystick .stick {
-  width: 40%;
-  height: 40%;
-  background: rgba(255,255,255,0.4);
+#stick {
+  width: 42%;                   /* slightly larger than old version */
+  height: 42%;
+  background: rgba(255,255,255,0.45);
   border-radius: 50%;
   position: absolute;
   transform: translate(0,0);
+  box-shadow: 0 0 12px rgba(255,255,255,0.35);  /* glow = better thumb awareness */
+  transition: transform 40ms linear;            /* smoothing micro jitter */
 }
+
+/* Improve joystick on larger screens */
+@media (min-width: 768px) {
+  #joystick {
+    width: 18vw;
+    max-width: 150px;
+  }
+}
+
