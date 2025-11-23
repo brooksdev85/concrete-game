@@ -33,16 +33,12 @@
       <div id="game-container-relative">
         <canvas id="gameCanvas"></canvas>
 
-        <!-- LEFT JOYSTICK (Vertical movement only: up/down) -->
-        <div id="joystick-left" class="dual-joystick">
-          <div class="stick"></div>
+        <!-- SINGLE FLOATING JOYSTICK -->
+        <div id="joystick">
+          <div id="stick"></div>
         </div>
 
-        <!-- RIGHT JOYSTICK (Horizontal movement only: left/right) -->
-        <div id="joystick-right" class="dual-joystick">
-          <div class="stick"></div>
-        </div>
-
+        <!-- MESSAGE OVERLAY -->
         <div id="message-overlay">
           <div id="message-box">
             <h2 id="message-title"></h2>
@@ -53,6 +49,7 @@
         </div>
       </div>
 
+      <!-- LEGEND -->
       <div id="legend">
         <div class="legend-item"><div class="legend-color" style="background:#d5d5d5;"></div> raw concrete</div>
         <div class="legend-item"><div class="legend-color" style="background:#a0a0a0;"></div> worked</div>
@@ -77,7 +74,7 @@
       getDocs
     } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js";
 
-    // Your web app's Firebase configuration
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBgA-U1pCbmpmq-pa_GXRHVyQ1xbr5ZBuQ",
       authDomain: "power-trowel-game.firebaseapp.com",
@@ -87,11 +84,11 @@
       appId: "1:1094565181158:web:634ea8ef9599d92eaa2d27"
     };
 
-    // Initialize Firebase
+    // Init Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Expose Firestore safely to game.js
+    // Expose Firestore to game.js
     window._firebase = {
       db,
       addDoc,
@@ -103,11 +100,11 @@
     };
   </script>
 
-  <!-- Delay loading game.js until Firebase is ready -->
+  <!-- Load game.js AFTER Firebase -->
   <script>
     window.addEventListener("DOMContentLoaded", () => {
       const script = document.createElement("script");
-      script.src = "game.js?v=" + Date.now();  // bust cache so new JS loads
+      script.src = "game.js?v=" + Date.now();
       document.body.appendChild(script);
     });
   </script>
