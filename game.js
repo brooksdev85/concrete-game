@@ -51,18 +51,24 @@ let bestScore = 0;
 // Total score for this run (completed levels so far)
 let totalRunScore = 0;
 
-/* Swipe + hold */
+/* ============================================================
+   MOVEMENT TIMING (Speed A)
+   - Fast response
+   - Slightly slower stepping to avoid "jumping 2-4 tiles"
+============================================================ */
 let currentDirection = null;
 let holdInterval = null;
 
-// Faster + smoother than 150, but still safe (won’t “skip” tiles)
+// continuous movement tick (slightly slower than your super-fast version)
 const MOVE_INTERVAL = 95;
 
-// Prevent double-steps when flicking directions fast
+// minimum time between any two moves (prevents double-steps on flicks)
 let lastMoveAt = 0;
-const MIN_STEP_MS = 60;
+const MIN_STEP_MS = 70;
 
-// START SCREEN FLAGS
+/* ============================================================
+   START SCREEN FLAGS
+============================================================ */
 let showStartScreen = true;
 let hasStartedGame = false;
 
@@ -77,13 +83,9 @@ let fbOrderBy = null;
 let fbLimitFn = null;
 let fbGetDocs = null;
 
-// In-memory snapshot of global top scores
 let globalLeaderboard = [];
-
-// Remember player name between runs
 let playerName = localStorage.getItem("concretePlayerName") || "";
 
-// Grab Firebase objects exposed from index.html
 function initFirebaseRefs() {
   if (!window._firebase) {
     console.warn("Firebase not available on window._firebase");
@@ -108,20 +110,15 @@ function initFirebaseRefs() {
   fbGetDocs = getDocs;
 }
 
-// Submit a score to Firestore (collection: "leaderboard")
 async function submitScoreToFirebase(name, score) {
   if (!fbDb || !fbAddDoc || !fbCollection) return;
   try {
-    await fbAddDoc(fbCollection(fbDb, "leaderboard"), {
-      name,
-      score,
-    });
+    await fbAddDoc(fbCollection(fbDb, "leaderboard"), { name, score });
   } catch (err) {
     console.error("Error submitting score to Firebase:", err);
   }
 }
 
-// Load top 5 scores from Firestore into globalLeaderboard
 async function refreshGlobalLeaderboard() {
   if (!fbDb || !fbQuery || !fbCollection || !fbOrderBy || !fbLimitFn || !fbGetDocs) return;
   try {
@@ -138,7 +135,6 @@ async function refreshGlobalLeaderboard() {
   }
 }
 
-// Check if a score qualifies for top 5 based on current globalLeaderboard snapshot
 function qualifiesForLeaderboard(score) {
   if (!globalLeaderboard || globalLeaderboard.length === 0) return true;
   if (globalLeaderboard.length < 5) return true;
@@ -146,7 +142,6 @@ function qualifiesForLeaderboard(score) {
   return score > lowest;
 }
 
-// Build HTML for the big leaderboard inside the overlay
 function buildLeaderboardHtml() {
   if (!globalLeaderboard || globalLeaderboard.length === 0) {
     return "<br><br><strong>Top Scores (Global)</strong><br>No scores yet.";
@@ -158,7 +153,6 @@ function buildLeaderboardHtml() {
   return html;
 }
 
-// Small leaderboard under the score stat (Top 5)
 function updateLeaderboardSmall() {
   const scoreSpan = document.getElementById("scoreDisplay");
   if (!scoreSpan) return;
@@ -213,7 +207,6 @@ function setupLevel(levelIndex) {
 
   resizeCanvas();
 
-  // Build tiles
   tiles = [];
   for (let y = 0; y < rows; y++) {
     const row = [];
@@ -223,7 +216,6 @@ function setupLevel(levelIndex) {
     tiles.push(row);
   }
 
-  // Start in the bottom-right corner
   trowelX = cols - 1;
   trowelY = rows - 1;
 
@@ -289,7 +281,6 @@ function drawStartScreen() {
 function drawGame(gameTime) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw each tile
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const t = tiles[y][x];
@@ -312,7 +303,6 @@ function drawGame(gameTime) {
     }
   }
 
-  // Draw trowel
   if (trowelLoaded) {
     const pad = tileSize * 0.1;
     const size = tileSize - pad * 2;
@@ -331,7 +321,6 @@ function drawGame(gameTime) {
    GAME LOOP
 ============================================================ */
 function gameLoop(timestamp) {
-  // While on start screen, just keep drawing it
   if (showStartScreen) {
     drawStartScreen();
     requestAnimationFrame(gameLoop);
@@ -339,7 +328,6 @@ function gameLoop(timestamp) {
   }
 
   if (!isLevelRunning) return;
-
   if (!startTimestamp) startTimestamp = timestamp;
 
   const elapsed = (timestamp - startTimestamp) / 1000;
@@ -394,8 +382,8 @@ function updateHUD() {
   document.getElementById("levelDisplay").textContent = currentLevelIndex + 1;
   document.getElementById("timeDisplay").textContent = Math.ceil(timeRemaining);
 
-  let perfect = 0;     
-  let levelScore = 0;  
+  let perfect = 0;
+  let levelScore = 0;
 
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
@@ -419,7 +407,6 @@ function updateHUD() {
   }
 
   document.getElementById("bestDisplay").textContent = bestScore;
-
   updateLeaderboardSmall();
 }
 
@@ -429,7 +416,7 @@ function updateHUD() {
 function finishLevel() {
   isLevelRunning = false;
 
-  let perfect = 0; 
+  let perfect = 0;
   let partial = 0;
   let total = cols * rows;
   let totalPasses = 0;
@@ -510,7 +497,6 @@ function finishLevel() {
 function showMessage() {
   document.getElementById("message-overlay").style.display = "flex";
 }
-
 function hideMessage() {
   document.getElementById("message-overlay").style.display = "none";
 }
@@ -522,7 +508,7 @@ function moveTrowel(dx, dy) {
   if (!isLevelRunning) return;
 
   const now = performance.now();
-  if (now - lastMoveAt < MIN_STEP_MS) return; // anti-jitter guard
+  if (now - lastMoveAt < MIN_STEP_MS) return;
   lastMoveAt = now;
 
   const nx = trowelX + dx;
@@ -545,14 +531,13 @@ function moveTrowel(dx, dy) {
   }
 }
 
-// Centralized, responsive direction setter
 function setDirection(direction) {
   if (!direction) return;
 
   if (currentDirection !== direction) {
     currentDirection = direction;
 
-    // immediate step when changing direction
+    // direction change = immediate ONE step (keeps it feeling responsive)
     if (direction === "up")    moveTrowel(0, -1);
     if (direction === "down")  moveTrowel(0, 1);
     if (direction === "left")  moveTrowel(-1, 0);
@@ -605,27 +590,41 @@ window.addEventListener("keydown", e => {
 });
 
 /* ============================================================
-   SINGLE FLOATING JOYSTICK (Option A, pro feel)
+   SINGLE FLOATING JOYSTICK — ANYWHERE ON SCREEN
 ============================================================ */
 const joy = document.getElementById("joystick");
 const stick = document.getElementById("stick");
-const gameArea = document.getElementById("game-container-relative");
 
 let joyActive = false;
 let joyTouchId = null;
 let joyCenterX = 0;
 let joyCenterY = 0;
 
-// radius matches CSS scale; use fixed logic radius for direction
-const JOY_RADIUS = 60;
+const JOY_RADIUS = 60;        // matches CSS / comfortable thumb zone
 const DEAD_ZONE = 10;
-const DOMINANCE_RATIO = 1.15; // hysteresis for clean snaps
+const DOMINANCE_RATIO = 1.15; // diagonal hysteresis (feels pro)
 
 joy.style.display = "none";
 
-// Touch start anywhere in game area
-gameArea.addEventListener("touchstart", (e) => {
+// helper so joystick doesn't spawn on top-bar/buttons/overlay
+function shouldIgnoreTouchTarget(target) {
+  return !!(
+    target.closest("#top-bar") ||
+    target.closest("#buttons") ||
+    target.closest("button") ||
+    target.closest("#message-overlay")
+  );
+}
+
+// Touch start ANYWHERE
+window.addEventListener("touchstart", (e) => {
+  if (joyActive) return;
+
   const touch = e.changedTouches[0];
+  if (!touch) return;
+
+  if (shouldIgnoreTouchTarget(e.target)) return;
+
   joyTouchId = touch.identifier;
   joyActive = true;
 
@@ -633,19 +632,18 @@ gameArea.addEventListener("touchstart", (e) => {
   joyCenterY = touch.clientY;
 
   joy.style.left = (joyCenterX - JOY_RADIUS) + "px";
-  joy.style.top = (joyCenterY - JOY_RADIUS) + "px";
+  joy.style.top  = (joyCenterY - JOY_RADIUS) + "px";
   joy.style.display = "flex";
 
   if (showStartScreen) startGameNow();
 }, { passive: true });
 
-gameArea.addEventListener("touchmove", (e) => {
+window.addEventListener("touchmove", (e) => {
   if (!joyActive) return;
 
   const touch = [...e.changedTouches].find(t => t.identifier === joyTouchId);
   if (!touch) return;
 
-  // prevent page scroll while joystick is active
   e.preventDefault();
 
   const dx = touch.clientX - joyCenterX;
@@ -675,13 +673,11 @@ gameArea.addEventListener("touchmove", (e) => {
 
   let direction;
 
-  // Strong axis wins, weak diagonal keeps last direction (feels pro)
   if (absX > absY * DOMINANCE_RATIO) {
     direction = clampedX > 0 ? "right" : "left";
   } else if (absY > absX * DOMINANCE_RATIO) {
     direction = clampedY > 0 ? "down" : "up";
   } else {
-    // near diagonal: keep last direction if possible, otherwise fall back on bigger axis
     direction = currentDirection || (absX >= absY
       ? (clampedX > 0 ? "right" : "left")
       : (clampedY > 0 ? "down" : "up"));
@@ -690,7 +686,7 @@ gameArea.addEventListener("touchmove", (e) => {
   setDirection(direction);
 }, { passive: false });
 
-gameArea.addEventListener("touchend", (e) => {
+window.addEventListener("touchend", (e) => {
   const touch = [...e.changedTouches].find(t => t.identifier === joyTouchId);
   if (!touch) return;
 
@@ -702,7 +698,7 @@ gameArea.addEventListener("touchend", (e) => {
   stopContinuousMove();
 }, { passive: true });
 
-gameArea.addEventListener("touchcancel", () => {
+window.addEventListener("touchcancel", () => {
   joyActive = false;
   joyTouchId = null;
 
@@ -714,8 +710,6 @@ gameArea.addEventListener("touchcancel", () => {
 /* ============================================================
    BUTTONS
 ============================================================ */
-
-// Restart button = restart whole run from level 1
 document.getElementById("restartButton").onclick = () => {
   totalRunScore = 0;
   currentLevelIndex = 0;
@@ -732,7 +726,6 @@ document.getElementById("helpButton").onclick = () => {
   );
 };
 
-// Next Level / Try Again button
 document.getElementById("nextLevelBtn").onclick = () => {
   hideMessage();
 
