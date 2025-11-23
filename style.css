@@ -11,6 +11,9 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+
+  /* Prevent page from scrolling when joystick is active */
+  overflow-x: hidden;
 }
 
 #game-wrapper {
@@ -65,6 +68,13 @@ button {
   border-radius: 6px;
   max-height: 70vh;
   display: block;
+
+  /* Prevent touch scroll during gameplay */
+  touch-action: none;
+}
+
+#game-container-relative {
+  /* Prevent browser scroll behavior completely while inside game zone */
   touch-action: none;
 }
 
@@ -105,44 +115,47 @@ button {
 }
 
 /* ============================================================
-   SINGLE FLOATING JOYSTICK (Optimized version)
+   SINGLE FLOATING JOYSTICK (Optimized and Professional)
 ============================================================ */
 
 #joystick {
-  width: 22vw;                  /* auto scales with screen */
+  width: 22vw;                    /* auto-scale, perfect feel */
   max-width: 140px;
   min-width: 85px;
   aspect-ratio: 1/1;
   background: rgba(255,255,255,0.06);
-  border: 2px solid rgba(255,255,255,0.25);
+  border: 2px solid rgba(255,255,255,0.22);
   border-radius: 50%;
   position: fixed;
-  bottom: 9vh;                  /* safe distance above home bar */
-  left: 6vw;                    /* ergonomic distance from edge */
+
+  bottom: 9vh;                    /* always above Android/iPhone bars */
+  left: 6vw;                      /* ergonomic natural thumb position */
+
   touch-action: none;
-  display: none;                /* appears only when touched */
+  display: none;                  /* visible only when user touches */
   justify-content: center;
   align-items: center;
   z-index: 99;
-  backdrop-filter: blur(6px);   /* premium look */
+
+  backdrop-filter: blur(6px);     /* premium translucent look */
 }
 
 #stick {
-  width: 42%;                   /* slightly larger than old version */
+  width: 42%;
   height: 42%;
   background: rgba(255,255,255,0.45);
   border-radius: 50%;
   position: absolute;
+
   transform: translate(0,0);
-  box-shadow: 0 0 12px rgba(255,255,255,0.35);  /* glow = better thumb awareness */
-  transition: transform 40ms linear;            /* smoothing micro jitter */
+  box-shadow: 0 0 12px rgba(255,255,255,0.35);
+  transition: transform 40ms linear;     /* micro-smoothed movement */
 }
 
-/* Improve joystick on larger screens */
+/* Larger tablets get stronger thumb controls */
 @media (min-width: 768px) {
   #joystick {
     width: 18vw;
     max-width: 150px;
   }
 }
-
